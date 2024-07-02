@@ -1,0 +1,154 @@
+// database/connect.js:
+
+import 'server-only';
+
+import postgres from 'postgres';
+import { config } from 'dotenv-safe';
+
+config();
+
+export const sql = postgres({
+  transform: {
+    ...postgres.camel,
+    undefined: null,
+  },
+});
+
+----------------------------------------
+
+// database/database.js:
+
+import postgres from 'postgres';
+import { config } from 'dotenv-safe';
+
+console.log(config());
+
+config();
+
+const sql = postgres();
+
+console.log(
+  await sql`
+    SELECT
+    *
+    FROM
+      users
+  `,
+);
+
+----------------------------------------
+
+// migrations/00000-createUsersTable.ts:
+
+import sql, { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE users (
+      id serial PRIMARY KEY,
+      username varchar(255) NOT NULL,
+      email varchar(255) NOT NULL,
+      password_hash varchar(255) NOT NULL,
+      full_name text,
+      description text,
+      profile_id bigint,
+      user_image varchar(255),
+      location POINT,
+      birthdate date,
+      profession text,
+      links text,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE users`;
+}
+
+----------------------------------------
+
+// package.json:
+
+{
+  "name": "townwall",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "next lint",
+    "migrate": "ley --require tsx/cjs",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@upleveled/ley": "^0.8.6",
+    "dotenv-safe": "^9.1.0",
+    "esm": "^3.2.25",
+    "ley": "^0.8.1",
+    "next": "14.2.4",
+    "pg": "^8.12.0",
+    "postgres": "^3.4.4",
+    "psql": "^0.0.1",
+    "react": "^18",
+    "react-dom": "^18",
+    "tsx": "^4.16.0"
+  },
+  "devDependencies": {
+    "@ts-safeql/eslint-plugin": "^3.3.1",
+    "@types/dotenv-safe": "^8.1.6",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.4",
+    "eslint-config-upleveled": "^8.3.1",
+    "libpg-query": "15.2.0-rc.deparse.3",
+    "postcss": "^8",
+    "prettier": "^3.3.2",
+    "prettier-plugin-embed": "^0.4.15",
+    "prettier-plugin-sql": "^0.18.0",
+    "stylelint": "^16.6.1",
+    "stylelint-config-upleveled": "^1.1.3",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
+
+----------------------------------------
+
+// .env:
+
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=townwall
+PGUSERNAME=townwall
+PGPASSWORD=townwall
+
+----------------------------------------
+
+// ley.config.js:
+
+import { config } from 'dotenv-safe';
+import postgres from 'postgres';
+
+config();
+
+const options = {
+  host: process.env.PGHOST,
+  port: process.env.PGPORT,
+  database: process.env.PGDATABASE,
+  username: process.env.PGUSERNAME,
+  password: process.env.PGPASSWORD,
+  transform: {
+    ...postgres.camel,
+    undefined: null,
+  },
+};
+
+export default options;
+
+----------------------------------------
+

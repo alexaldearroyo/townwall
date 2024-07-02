@@ -1,13 +1,18 @@
-// ley.config.js
+import { config } from 'dotenv-safe';
+import postgres from 'postgres';
 
-module.exports = {
-  dir: 'migrations',
-  defaultExtension: 'sql',
-  driver: 'pg',
-  database: 'townwall',
-  user: 'townwall',
-  password: 'townwall',
-  host: 'localhost',
-  port: 5432,
+config();
+
+const options = {
+  host: process.env.PGHOST,
+  port: process.env.PGPORT,
+  database: process.env.PGDATABASE,
+  username: process.env.PGUSERNAME,
+  password: process.env.PGPASSWORD,
+  transform: {
+    ...postgres.camel,
+    undefined: null,
+  },
 };
 
+export default options;
