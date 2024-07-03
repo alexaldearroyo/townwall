@@ -1,5 +1,3 @@
-import 'server-only';
-
 import postgres from 'postgres';
 import { config } from 'dotenv-safe';
 
