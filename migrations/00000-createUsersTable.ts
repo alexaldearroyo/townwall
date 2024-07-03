@@ -5,7 +5,7 @@ export async function up(sql: Sql) {
     CREATE TABLE users (
       id serial PRIMARY KEY,
       username varchar(255) NOT NULL,
-      email varchar(255) NOT NULL,
+      email varchar(255),
       password_hash varchar(255) NOT NULL,
       full_name text,
       description text,
@@ -19,6 +19,7 @@ export async function up(sql: Sql) {
       updated_at timestamp DEFAULT CURRENT_TIMESTAMP
     )
   `;
+  // make email not null!
 
   await sql`
     CREATE
@@ -40,5 +41,5 @@ export async function up(sql: Sql) {
 export async function down(sql: Sql) {
   await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
   await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
-  await sql`DROP TABLE users`;
+  await sql`DROP TABLE IF EXISTS users`;
 }
