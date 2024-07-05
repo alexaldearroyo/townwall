@@ -7,10 +7,16 @@ import {
   deleteSessionByToken,
 } from '../../../../../database/sessions';
 
-import { Request } from 'express';
-
 export async function POST(request: Request) {
-  const sessionToken = request.cookies.get('session')?.value;
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
 
   if (!sessionToken) {
     return NextResponse.json(
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
   await deleteSessionByToken(sessionToken);
 
   const response = NextResponse.json({ message: 'User deleted successfully' });
-  response.cookies.set('session', '', { maxAge: -1 });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
 
   return response;
 }
