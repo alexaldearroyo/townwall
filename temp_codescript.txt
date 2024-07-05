@@ -5,10 +5,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
@@ -27,9 +29,15 @@ export default function RegisterForm() {
     if (response.ok) {
       // Handle successful registration
       console.log('User registered:', data);
+      // Show success message
+      setError('User registered successfully');
+      // Wait for 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Redirect to login page
+      router.push('/login');
     } else {
       // Handle errors
-      setError(data ? data.errors[0].message : 'An error occurred');
+      setError(data ? data.errors[0].message : 'Invalid username or password');
     }
   }
 
@@ -37,7 +45,7 @@ export default function RegisterForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Register
+          Sign Up
         </h1>
         <form onSubmit={handleRegister} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}
@@ -106,6 +114,58 @@ export default function RegisterPage() {
       <RegisterForm />
     </div>
   );
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/delete/route.ts:
+
+// src/app/(auth)/api/delete/route.ts
+
+import { NextResponse } from 'next/server';
+import { getUserById, deleteUserById } from '../../../../../database/users';
+import {
+  getSessionByToken,
+  deleteSessionByToken,
+} from '../../../../../database/sessions';
+
+import { Request } from 'express';
+
+export async function POST(request: Request) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.json(
+      { errors: [{ message: 'Invalid session token' }] },
+      { status: 401 },
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return NextResponse.json(
+      { errors: [{ message: 'User not found' }] },
+      { status: 404 },
+    );
+  }
+
+  await deleteUserById(user.id);
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'User deleted successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
 }
 
 ----------------------------------------
@@ -288,11 +348,13 @@ export async function POST(
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -311,7 +373,7 @@ export default function LoginForm() {
 
     if (response.ok) {
       console.log('Login successful:', data);
-      window.location.href = '/profile/' + username; // Redirect to profile page
+      router.push(`/profile/${username}`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(
@@ -326,7 +388,7 @@ export default function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Login
+          Sign In
         </h1>
         <form onSubmit={handleLogin} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}
@@ -396,7 +458,10 @@ export default function LoginPage() {
 
 ----------------------------------------
 
+
 // src/app/globals.css:
+
+/* src/app/globals.css */
 
 @tailwind base;
 @tailwind components;
@@ -417,15 +482,21 @@ export default function LoginPage() {
 body {
   color: var(--foreground-color);
   background-color: var(--background-color);
+  margin: 0; /* Ensure no default margin/padding */
+  padding: 0; /* Ensure no default margin/padding */
+  box-sizing: border-box; /* Ensure box sizing is consistent */
 }
 
 ----------------------------------------
 
 // src/app/layout.tsx:
 
+// src/app/layout.tsx
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import Header from '../components/Header';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -441,7 +512,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Header />
+        {children}
+      </body>
     </html>
   );
 }
@@ -473,7 +547,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/profile'], // Protected routes
+  matcher: ['/profile/:path*'], // Protected routes
 };
 
 ----------------------------------------
@@ -485,7 +559,6 @@ import React from 'react';
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-4xl font-bold text-gray-900 mb-6">Townwall</h1>
       <p className="text-gray-600 mb-8">
         Get started by registering an account or signing in.
       </p>
@@ -494,7 +567,7 @@ export default function Home() {
           href="/register"
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
         >
-          Register
+          Sign Up
         </a>
         <a
           href="/login"
@@ -510,8 +583,6 @@ export default function Home() {
 ----------------------------------------
 
 // src/app/profile/ProfilePageClient.tsx:
-
-// src/app/profile/ProfilePageClient.tsx
 
 'use client';
 
@@ -536,6 +607,28 @@ export default function ProfilePageClient({
     }
   }
 
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action is irreversible.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/'; // Redirect to home page after account deletion
+    } else {
+      const data = await response.json();
+      setError(
+        data.errors ? data.errors[0].message : 'Failed to delete account',
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
@@ -548,7 +641,13 @@ export default function ProfilePageClient({
           onClick={handleLogout}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
-          Logout
+          Sign Out
+        </button>
+        <button
+          onClick={handleDeleteAccount}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Delete Account
         </button>
       </div>
     </div>
@@ -557,15 +656,15 @@ export default function ProfilePageClient({
 
 ----------------------------------------
 
-// src/app/profile/[username].tsx:
+// src/app/profile/[username]/page.tsx:
 
-// src/app/profile/[username].tsx
+// src/app/profile/[username]/page.tsx
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../database/users';
-import { getSessionByToken } from '../../../database/sessions';
-import ProfilePageClient from './ProfilePageClient';
+import { getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import ProfilePageClient from '../../profile/ProfilePageClient';
 
 export default async function ProfilePage({
   params,
@@ -600,53 +699,6 @@ export default async function ProfilePage({
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  return <ProfilePageClient user={user} />;
-}
-
-----------------------------------------
-
-// src/app/profile/page.tsx:
-
-// src/app/profile/page.tsx
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserById } from '../../../database/users';
-import { getSessionByToken } from '../../../database/sessions';
-import ProfilePageClient from './ProfilePageClient';
-
-export default async function ProfilePage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const user = await getUserById(session.userId);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
       </div>
     );
   }
@@ -1115,6 +1167,14 @@ export async function getUserById(id: number): Promise<User | undefined> {
   `;
 
   return user || undefined;
+}
+
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
 }
 
 ----------------------------------------

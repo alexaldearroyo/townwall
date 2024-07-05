@@ -77,3 +77,11 @@ export async function getUserById(id: number): Promise<User | undefined> {
 
   return user || undefined;
 }
+
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
+}
