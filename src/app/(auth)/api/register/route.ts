@@ -1,5 +1,8 @@
+// src/app/(auth)/api/register/route.ts
+
 import { NextResponse } from 'next/server';
 import { createUser, getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
 
@@ -37,7 +40,17 @@ export async function POST(
 
     const user = await createUser(result.data.username, result.data.password);
 
-    return NextResponse.json({ user }, { status: 201 });
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
   } catch (error) {
     console.error(error);
     return NextResponse.json(

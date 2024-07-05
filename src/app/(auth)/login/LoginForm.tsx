@@ -27,7 +27,11 @@ export default function LoginForm() {
       window.location.href = '/profile'; // Redirect to profile page
     } else {
       console.log('Login failed:', data);
-      setError(data ? data.errors[0].message : 'An error occurred');
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
     }
   }
 
@@ -76,7 +80,7 @@ export default function LoginForm() {
           </div>
           <div>
             <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-              Login
+              Sign in
             </button>
           </div>
         </form>

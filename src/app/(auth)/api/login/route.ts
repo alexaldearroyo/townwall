@@ -39,7 +39,7 @@ export async function POST(
       );
     }
 
-    // Añadir log para verificar el resultado de bcrypt.compare
+    // Add a log to verify the result of bcrypt.compare
     const passwordMatch = await bcrypt.compare(
       result.data.password,
       user.passwordHash,
