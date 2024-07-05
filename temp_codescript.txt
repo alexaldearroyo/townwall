@@ -233,10 +233,9 @@ export async function POST(
 
 // src/app/(auth)/api/login/route.ts:
 
-// src/app/(auth)/api/login/route.ts
-
 import { NextResponse } from 'next/server';
 import { getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/users';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
@@ -253,9 +252,12 @@ export async function POST(
 ): Promise<NextResponse<LoginResponseBodyPost>> {
   try {
     const body = await request.json();
+    console.log('Received login request:', body);
+
     const result = loginSchema.safeParse(body);
 
     if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
       return NextResponse.json(
         { errors: result.error.issues },
         { status: 400 },
@@ -265,6 +267,7 @@ export async function POST(
     const user = await getUserByUsername(result.data.username);
 
     if (!user) {
+      console.log('User not found:', result.data.username);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },
@@ -276,21 +279,27 @@ export async function POST(
       : false;
 
     if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.username);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },
       );
     }
 
-    // Example using NextResponse cookie setting
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
     const response = NextResponse.json({ user }, { status: 200 });
-    response.cookies.set('session', 'your-session-token', {
+    response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 1 semana
     });
+
     return response;
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
     return NextResponse.json(
       { errors: [{ message: 'Internal server error' }] },
       { status: 500 },
@@ -301,8 +310,6 @@ export async function POST(
 ----------------------------------------
 
 // src/app/(auth)/login/LoginForm.tsx:
-
-// src/app/(auth)/login/LoginForm.tsx
 
 'use client';
 
@@ -316,6 +323,8 @@ export default function LoginForm() {
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    console.log('Attempting login with:', { username, password });
+
     const response = await fetch('/api/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
@@ -327,11 +336,10 @@ export default function LoginForm() {
     const data = response.ok ? await response.json() : null;
 
     if (response.ok) {
-      // Handle successful login
-      console.log('User logged in:', data);
+      console.log('Login successful:', data);
       window.location.href = '/profile'; // Redirect to profile page
     } else {
-      // Handle errors
+      console.log('Login failed:', data);
       setError(data ? data.errors[0].message : 'An error occurred');
     }
   }
@@ -380,7 +388,10 @@ export default function LoginForm() {
             />
           </div>
           <div>
-            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
               Login
             </button>
           </div>
@@ -497,6 +508,36 @@ export default function RootLayout({
 
 ----------------------------------------
 
+// src/app/middleware.ts:
+
+// src/middleware.ts
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { getSessionByToken } from '../../database/users';
+
+export async function middleware(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.redirect('/login');
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.redirect('/login');
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/profile'], // Protected routes
+};
+
+----------------------------------------
+
 // src/app/page.tsx:
 
 import React from 'react';
@@ -530,13 +571,33 @@ export default function Home() {
 
 // src/app/profile/page.tsx:
 
-// src/app/profile/page.tsx
-
 import React from 'react';
 import { cookies } from 'next/headers';
+import { getSessionByToken, getUserById } from '../../../database/users';
 
-export default function ProfilePage() {
-  const user = getUserFromSession(); // Implement this function to get the user from session
+export default async function ProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
 
   if (!user) {
     return (
@@ -556,19 +617,6 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-}
-
-// Example function to get user from session
-function getUserFromSession() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) return null;
-
-  // Fetch user from sessionToken
-  // This is a placeholder. Implement session handling as per your needs.
-  const user = { username: 'testuser' };
-  return user;
 }
 
 ----------------------------------------
@@ -870,12 +918,23 @@ export const sql = postgres({
 // database/users.ts:
 
 import { sql } from './connect';
+import crypto from 'node:crypto';
 
 export type User = {
-  id: null | number;
-  username: null | string;
-  passwordHash: null | string;
+  id: number;
+  username: string;
+  passwordHash: string;
 };
+
+export type Session = {
+  id: number;
+  userId: number;
+  token: string;
+  createdAt: Date | null;
+  expiresAt: Date | null;
+};
+
+// REGISTRATION
 
 // Function to create a user
 export async function createUser(
@@ -893,62 +952,108 @@ export async function createUser(
     RETURNING
       id,
       username,
-      password_hash
+      password_hash AS "passwordHash"
   `;
-  if (
-    !user ||
-    user.id === null ||
-    user.username === null ||
-    user.passwordHash === null
-  ) {
+
+  if (!user) {
     throw new Error('User creation failed');
   }
+
   return {
     id: user.id,
     username: user.username,
     passwordHash: user.passwordHash,
   };
 }
+
 // Function to get a user by their username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
-  const [user] = await sql<
-    { id: number; username: string; passwordHash: string }[]
-  >`
+  const [user] = await sql<User[]>`
     SELECT
       id,
       username,
-      password_hash
+      password_hash AS "passwordHash"
     FROM
       users
     WHERE
       username = ${username}
   `;
-  if (!user) {
-    return undefined;
-  }
-  return user;
+
+  return user || undefined;
 }
 
 // Function to get a user by their ID
 export async function getUserById(id: number): Promise<User | undefined> {
-  const [user] = await sql<
-    { id: number; username: string; passwordHash: string }[]
-  >`
+  const [user] = await sql<User[]>`
     SELECT
       id,
       username,
-      password_hash
+      password_hash AS "passwordHash"
     FROM
       users
     WHERE
       id = ${id}
   `;
-  if (!user) {
-    return undefined;
+
+  return user || undefined;
+}
+
+// SESSION MANAGEMENT
+
+// Function to create a session
+export async function createSession(userId: number): Promise<Session> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const [session] = await sql<Session[]>`
+    INSERT INTO
+      sessions (user_id, token)
+    VALUES
+      (
+        ${userId},
+        ${token}
+      )
+    RETURNING
+      id,
+      user_id,
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+  `;
+
+  if (!session) {
+    throw new Error('Failed to create session');
   }
-  return user;
+
+  return session;
+}
+
+// Function to get a session by token
+export async function getSessionByToken(
+  token: string,
+): Promise<Session | undefined> {
+  const [session] = await sql<Session[]>`
+    SELECT
+      id,
+      user_id,
+      token,
+      created_at,
+      expires_at
+    FROM
+      sessions
+    WHERE
+      token = ${token}
+  `;
+  return session;
+}
+
+// Function to delete a session
+export async function deleteSession(token: string): Promise<void> {
+  await sql`
+    DELETE FROM sessions
+    WHERE
+      token = ${token}
+  `;
 }
 
 ----------------------------------------

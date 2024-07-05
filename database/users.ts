@@ -1,4 +1,5 @@
 import { sql } from './connect';
+import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 
 export type User = {
@@ -20,8 +21,9 @@ export type Session = {
 // Function to create a user
 export async function createUser(
   username: string,
-  passwordHash: string,
+  password: string,
 ): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10); // Hash password
   const [user] = await sql<User[]>`
     INSERT INTO
       users (username, password_hash)

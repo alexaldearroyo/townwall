@@ -1,10 +1,30 @@
-// src/app/profile/page.tsx
-
 import React from 'react';
 import { cookies } from 'next/headers';
+import { getSessionByToken, getUserById } from '../../../database/users';
 
-export default function ProfilePage() {
-  const user = getUserFromSession(); // Implement this function to get the user from session
+export default async function ProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
 
   if (!user) {
     return (
@@ -24,17 +44,4 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-}
-
-// Example function to get user from session
-function getUserFromSession() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) return null;
-
-  // Fetch user from sessionToken
-  // This is a placeholder. Implement session handling as per your needs.
-  const user = { username: 'testuser' };
-  return user;
 }

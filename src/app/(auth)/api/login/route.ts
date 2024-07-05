@@ -1,7 +1,8 @@
-// src/app/(auth)/api/login/route.ts
-
 import { NextResponse } from 'next/server';
-import { getUserByUsername } from '../../../../../database/users';
+import {
+  getUserByUsername,
+  createSession,
+} from '../../../../../database/users';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
@@ -18,9 +19,12 @@ export async function POST(
 ): Promise<NextResponse<LoginResponseBodyPost>> {
   try {
     const body = await request.json();
+    console.log('Received login request:', body);
+
     const result = loginSchema.safeParse(body);
 
     if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
       return NextResponse.json(
         { errors: result.error.issues },
         { status: 400 },
@@ -30,32 +34,42 @@ export async function POST(
     const user = await getUserByUsername(result.data.username);
 
     if (!user) {
+      console.log('User not found:', result.data.username);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },
       );
     }
 
-    const passwordMatch = user.passwordHash
-      ? await bcrypt.compare(result.data.password, user.passwordHash)
-      : false;
+    // Añadir log para verificar el resultado de bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
 
     if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.username);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },
       );
     }
 
-    // Example using NextResponse cookie setting
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
     const response = NextResponse.json({ user }, { status: 200 });
-    response.cookies.set('session', 'your-session-token', {
+    response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 1 semana
     });
+
     return response;
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
     return NextResponse.json(
       { errors: [{ message: 'Internal server error' }] },
       { status: 500 },

@@ -1,5 +1,3 @@
-// src/app/(auth)/login/LoginForm.tsx
-
 'use client';
 
 import React, { useState } from 'react';
@@ -12,6 +10,8 @@ export default function LoginForm() {
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    console.log('Attempting login with:', { username, password });
+
     const response = await fetch('/api/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
@@ -23,11 +23,10 @@ export default function LoginForm() {
     const data = response.ok ? await response.json() : null;
 
     if (response.ok) {
-      // Handle successful login
-      console.log('User logged in:', data);
+      console.log('Login successful:', data);
       window.location.href = '/profile'; // Redirect to profile page
     } else {
-      // Handle errors
+      console.log('Login failed:', data);
       setError(data ? data.errors[0].message : 'An error occurred');
     }
   }
@@ -76,7 +75,10 @@ export default function LoginForm() {
             />
           </div>
           <div>
-            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
               Login
             </button>
           </div>
