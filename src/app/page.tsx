@@ -12,7 +12,7 @@ export default function Home() {
           href="/register"
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
         >
-          Register
+          Sign Up
         </a>
         <a
           href="/login"
