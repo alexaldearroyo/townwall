@@ -3,10 +3,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
@@ -25,9 +27,15 @@ export default function RegisterForm() {
     if (response.ok) {
       // Handle successful registration
       console.log('User registered:', data);
+      // Show success message
+      setError('User registered successfully');
+      // Wait for 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Redirect to login page
+      router.push('/login');
     } else {
       // Handle errors
-      setError(data ? data.errors[0].message : 'An error occurred');
+      setError(data ? data.errors[0].message : 'Invalid username or password');
     }
   }
 
@@ -35,7 +43,7 @@ export default function RegisterForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Register
+          Sign Up
         </h1>
         <form onSubmit={handleRegister} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}

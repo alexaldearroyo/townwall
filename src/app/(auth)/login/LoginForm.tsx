@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,7 +26,7 @@ export default function LoginForm() {
 
     if (response.ok) {
       console.log('Login successful:', data);
-      window.location.href = '/profile'; // Redirect to profile page
+      router.push(`/profile/${username}`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(
@@ -39,7 +41,7 @@ export default function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Login
+          Sign In
         </h1>
         <form onSubmit={handleLogin} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}
