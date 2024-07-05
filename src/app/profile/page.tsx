@@ -1,7 +1,10 @@
+// src/app/profile/page.tsx
+
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserById } from '../../../database/users';
 import { getSessionByToken } from '../../../database/sessions';
+import ProfilePageClient from './ProfilePageClient';
 
 export default async function ProfilePage() {
   const cookieStore = cookies();
@@ -35,14 +38,5 @@ export default async function ProfilePage() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Welcome, {user.username}
-        </h1>
-        <p className="text-gray-600 text-center">This is your profile page.</p>
-      </div>
-    </div>
-  );
+  return <ProfilePageClient user={user} />;
 }
