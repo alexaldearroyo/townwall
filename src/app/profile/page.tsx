@@ -1,6 +1,7 @@
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getSessionByToken, getUserById } from '../../../database/users';
+import { getUserById } from '../../../database/users';
+import { getSessionByToken } from '../../../database/sessions';
 
 export default async function ProfilePage() {
   const cookieStore = cookies();

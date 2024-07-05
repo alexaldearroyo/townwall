@@ -234,8 +234,10 @@ export async function POST(
 // src/app/(auth)/api/login/route.ts:
 
 import { NextResponse } from 'next/server';
-import { getUserByUsername } from '../../../../../database/users';
-import { createSession } from '../../../../../database/users';
+import {
+  getUserByUsername,
+  createSession,
+} from '../../../../../database/users';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
@@ -274,9 +276,12 @@ export async function POST(
       );
     }
 
-    const passwordMatch = user.passwordHash
-      ? await bcrypt.compare(result.data.password, user.passwordHash)
-      : false;
+    // Añadir log para verificar el resultado de bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
 
     if (!passwordMatch) {
       console.log('Password mismatch for user:', result.data.username);
@@ -294,7 +299,7 @@ export async function POST(
     response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 12, // 12 hours
     });
 
     return response;
@@ -918,6 +923,7 @@ export const sql = postgres({
 // database/users.ts:
 
 import { sql } from './connect';
+import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 
 export type User = {
@@ -930,8 +936,8 @@ export type Session = {
   id: number;
   userId: number;
   token: string;
-  createdAt: Date | null;
-  expiresAt: Date | null;
+  createdAt: Date;
+  expiresAt: Date;
 };
 
 // REGISTRATION
@@ -939,9 +945,16 @@ export type Session = {
 // Function to create a user
 export async function createUser(
   username: string,
-  passwordHash: string,
+  password: string,
 ): Promise<User> {
-  const [user] = await sql<User[]>`
+  const passwordHash = await bcrypt.hash(password, 10); // Hash password
+  const [user] = await sql<
+    {
+      id: number | null;
+      username: string | null;
+      passwordHash: string | null;
+    }[]
+  >`
     INSERT INTO
       users (username, password_hash)
     VALUES
@@ -960,9 +973,9 @@ export async function createUser(
   }
 
   return {
-    id: user.id,
-    username: user.username,
-    passwordHash: user.passwordHash,
+    id: user.id!,
+    username: user.username!,
+    passwordHash: user.passwordHash!,
   };
 }
 
@@ -1005,6 +1018,7 @@ export async function getUserById(id: number): Promise<User | undefined> {
 // Function to create a session
 export async function createSession(userId: number): Promise<Session> {
   const token = crypto.randomBytes(32).toString('hex');
+
   const [session] = await sql<Session[]>`
     INSERT INTO
       sessions (user_id, token)

@@ -1,6 +1,5 @@
 import { sql } from './connect';
 import bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
 
 export type User = {
   id: number;
@@ -8,23 +7,19 @@ export type User = {
   passwordHash: string;
 };
 
-export type Session = {
-  id: number;
-  userId: number;
-  token: string;
-  createdAt: Date | null;
-  expiresAt: Date | null;
-};
-
-// REGISTRATION
-
 // Function to create a user
 export async function createUser(
   username: string,
   password: string,
 ): Promise<User> {
   const passwordHash = await bcrypt.hash(password, 10); // Hash password
-  const [user] = await sql<User[]>`
+  const [user] = await sql<
+    {
+      id: number | null;
+      username: string | null;
+      passwordHash: string | null;
+    }[]
+  >`
     INSERT INTO
       users (username, password_hash)
     VALUES
@@ -43,9 +38,9 @@ export async function createUser(
   }
 
   return {
-    id: user.id,
-    username: user.username,
-    passwordHash: user.passwordHash,
+    id: user.id!,
+    username: user.username!,
+    passwordHash: user.passwordHash!,
   };
 }
 
@@ -81,60 +76,4 @@ export async function getUserById(id: number): Promise<User | undefined> {
   `;
 
   return user || undefined;
-}
-
-// SESSION MANAGEMENT
-
-// Function to create a session
-export async function createSession(userId: number): Promise<Session> {
-  const token = crypto.randomBytes(32).toString('hex');
-  const [session] = await sql<Session[]>`
-    INSERT INTO
-      sessions (user_id, token)
-    VALUES
-      (
-        ${userId},
-        ${token}
-      )
-    RETURNING
-      id,
-      user_id,
-      token,
-      created_at AS "createdAt",
-      expires_at AS "expiresAt"
-  `;
-
-  if (!session) {
-    throw new Error('Failed to create session');
-  }
-
-  return session;
-}
-
-// Function to get a session by token
-export async function getSessionByToken(
-  token: string,
-): Promise<Session | undefined> {
-  const [session] = await sql<Session[]>`
-    SELECT
-      id,
-      user_id,
-      token,
-      created_at,
-      expires_at
-    FROM
-      sessions
-    WHERE
-      token = ${token}
-  `;
-  return session;
-}
-
-// Function to delete a session
-export async function deleteSession(token: string): Promise<void> {
-  await sql`
-    DELETE FROM sessions
-    WHERE
-      token = ${token}
-  `;
 }

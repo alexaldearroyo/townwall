@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import {
-  getUserByUsername,
-  createSession,
-} from '../../../../../database/users';
+import { getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
@@ -64,7 +62,7 @@ export async function POST(
     response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 12, // 12 hours
     });
 
     return response;

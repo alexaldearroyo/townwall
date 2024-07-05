@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getSessionByToken } from '../../database/users';
+import { getSessionByToken } from '../../database/sessions';
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
