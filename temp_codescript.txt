@@ -27,73 +27,65 @@ export default function RegisterForm() {
     const data = response.ok ? await response.json() : null;
 
     if (response.ok) {
-      // Handle successful registration
-      console.log('User registered:', data);
-      // Show success message
       setError('User registered successfully');
-      // Wait for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      // Redirect to login page
       router.push('/login');
     } else {
-      // Handle errors
       setError(data ? data.errors[0].message : 'Invalid username or password');
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Sign Up
-        </h1>
-        <form onSubmit={handleRegister} className="space-y-6">
-          {!!error && <p className="text-red-500">{error}</p>}
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              name="username"
-              placeholder="Username"
-              value={username}
-              onChange={(event) => setUsername(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(event) => setPassword(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign Up
-            </button>
-          </div>
-        </form>
-      </div>
+    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+        Sign Up
+      </h1>
+      <form onSubmit={handleRegister} className="space-y-6">
+        {!!error && <p className="text-red-500">{error}</p>}
+        <div>
+          <label
+            htmlFor="username"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            placeholder="Username"
+            value={username}
+            onChange={(event) => setUsername(event.currentTarget.value)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            required
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(event) => setPassword(event.currentTarget.value)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            required
+          />
+        </div>
+        <div>
+          <button
+            type="submit"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Sign Up
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -110,7 +102,7 @@ import RegisterForm from './RegisterForm';
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="main-content form-container bg-white dark:bg-gray-900">
       <RegisterForm />
     </div>
   );
@@ -129,10 +121,16 @@ import {
   deleteSessionByToken,
 } from '../../../../../database/sessions';
 
-import { Request } from 'express';
-
 export async function POST(request: Request) {
-  const sessionToken = request.cookies.get('session')?.value;
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
 
   if (!sessionToken) {
     return NextResponse.json(
@@ -163,7 +161,7 @@ export async function POST(request: Request) {
   await deleteSessionByToken(sessionToken);
 
   const response = NextResponse.json({ message: 'User deleted successfully' });
-  response.cookies.set('session', '', { maxAge: -1 });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
 
   return response;
 }
@@ -450,14 +448,13 @@ import LoginForm from './LoginForm';
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="main-content form-container bg-white dark:bg-gray-900">
       <LoginForm />
     </div>
   );
 }
 
 ----------------------------------------
-
 
 // src/app/globals.css:
 
@@ -514,7 +511,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Header />
-        {children}
+        <main className="main-content">{children}</main>
       </body>
     </html>
   );
@@ -635,7 +632,6 @@ export default function ProfilePageClient({
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Welcome, {user.username}
         </h1>
-        <p className="text-gray-600 text-center">This is your profile page.</p>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <button
           onClick={handleLogout}
