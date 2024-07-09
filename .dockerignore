@@ -1,43 +1,43 @@
-	# Secrets
-	*.env
-	.env.test
-	.env*.local
-	.env.development
+# Secrets
+*.env
+.env.test
+.env*.local
+.env.development
 
-	# Scripts
-	*.sql
+# Scripts
+*.sql
 
-	# Documentation
-	README.md
+# Documentation
+README.md
 
-	# Next.js build artifacts
-	build
-	.vercel
-	.next
+# Next.js build artifacts
+build
+.vercel
+.next
 
-	# Tests
-	playwright
-	playwright.config.ts
-	coverage
-	*/__tests__
-	jest.config.js
+# Tests
+playwright
+playwright.config.ts
+coverage
+*/__tests__
+jest.config.js
 
-	# Dependencies
-	node_modules
+# Dependencies
+node_modules
 
-	# Git and GitHub
-	.git
-	.github
+# Git and GitHub
+.git
+.github
 
-	# Linting, formatting config
-	.eslintcache
-	.eslintignore
-	.eslintrc
-	prettier.config.cjs
+# Linting, formatting config
+.eslintcache
+.eslintignore
+.eslintrc
+prettier.config.cjs
 
-	# Docker
-	Dockerfile
-	.dockerignore
+# Docker
+Dockerfile
+.dockerignore
 
-	# TypeScript cache
-	.tsbuildinfo
+# TypeScript cache
+.tsbuildinfo

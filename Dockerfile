@@ -42,7 +42,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/next.config.mjs ./
+COPY --from=builder /app/next.config.js ./
 
 # Copy startup scripts and make them executable
 COPY --from=builder /app/scripts ./scripts

@@ -1,6 +1,5 @@
-// src/utils/config.mjs
-import { config } from 'dotenv-safe';
 import postgres from 'postgres';
+import { config } from 'dotenv-safe';
 
 export const postgresConfig = {
   ssl: Boolean(process.env.POSTGRES_URL),
