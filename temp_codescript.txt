@@ -586,11 +586,12 @@ export async function down(sql: Sql) {
 
 // src/app/middleware.ts:
 
-// src/middleware.ts
+// src/app/middleware.ts
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSessionByToken } from '../../database/sessions';
+import { getUserById } from '../../database/users';
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
@@ -603,6 +604,18 @@ export async function middleware(request: NextRequest) {
 
   if (!session) {
     return NextResponse.redirect('/login');
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return NextResponse.redirect('/login');
+  }
+
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname === '/profile') {
+    return NextResponse.redirect(`/profile/${user.username}`);
   }
 
   return NextResponse.next();
@@ -685,27 +698,41 @@ export default function ProfilePageClient({
             className="w-32 h-32 mx-auto rounded-full"
           />
         )}
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.fullName}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.description}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.interests}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.profileLinks}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.location}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.birthdate}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.profession}
-        </p>
+        {!!user.fullName && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Full Name: {user.fullName}
+          </p>
+        )}
+        {!!user.description && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Description: {user.description}
+          </p>
+        )}
+        {!!user.interests && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Interests: {user.interests}
+          </p>
+        )}
+        {!!user.profileLinks && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Links: {user.profileLinks}
+          </p>
+        )}
+        {!!user.location && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Location: {user.location}
+          </p>
+        )}
+        {!!user.birthdate && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Birthdate: {user.birthdate}
+          </p>
+        )}
+        {!!user.profession && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Profession: {user.profession}
+          </p>
+        )}
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <button
           onClick={handleLogout}
@@ -756,11 +783,14 @@ export default function EditProfileForm() {
 
   useEffect(() => {
     async function fetchProfile() {
-      const response = await fetch('/api/profile');
-      const data = await response.json();
-      if (response.ok) {
+      try {
+        const response = await fetch('/api/profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        const data = await response.json();
         setFormData(data.user);
-      } else {
+      } catch (error) {
         setError('Failed to load profile data');
       }
     }
@@ -771,18 +801,22 @@ export default function EditProfileForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const response = await fetch('/api/profile', {
-      method: 'POST',
-      body: JSON.stringify(formData),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (response.ok) {
-      router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
-    } else {
-      setError('Failed to update profile');
+      if (response.ok) {
+        router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error: any) {
+      setError(error.message);
     }
   }
 
@@ -1344,10 +1378,13 @@ export async function POST(
 // src/app/(auth)/api/profile/route.ts:
 
 import { NextResponse } from 'next/server';
-import { getUserById, updateUserProfile } from '../../../../../database/users';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
 import { getSessionByToken } from '../../../../../database/sessions';
 import { z } from 'zod';
-import { User } from '../../../../../database/users';
 import { NextRequest } from 'next/server';
 
 const profileSchema = z.object({
@@ -1393,10 +1430,48 @@ export async function POST(request: NextRequest) {
 
     const updatedUser = await updateUserProfile(
       session.userId,
-      result.data as Partial<User>,
+      result.data as Partial<UserProfile>,
     );
 
     return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+    if (!user) {
+      return NextResponse.json(
+        { errors: [{ message: 'User not found' }] },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ user });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

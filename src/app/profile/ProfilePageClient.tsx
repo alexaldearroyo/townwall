@@ -66,27 +66,41 @@ export default function ProfilePageClient({
             className="w-32 h-32 mx-auto rounded-full"
           />
         )}
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.fullName}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.description}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.interests}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.profileLinks}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.location}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.birthdate}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {user.profession}
-        </p>
+        {!!user.fullName && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Full Name: {user.fullName}
+          </p>
+        )}
+        {!!user.description && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Description: {user.description}
+          </p>
+        )}
+        {!!user.interests && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Interests: {user.interests}
+          </p>
+        )}
+        {!!user.profileLinks && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Links: {user.profileLinks}
+          </p>
+        )}
+        {!!user.location && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Location: {user.location}
+          </p>
+        )}
+        {!!user.birthdate && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Birthdate: {user.birthdate}
+          </p>
+        )}
+        {!!user.profession && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Profession: {user.profession}
+          </p>
+        )}
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <button
           onClick={handleLogout}
