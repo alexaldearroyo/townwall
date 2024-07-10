@@ -20,11 +20,14 @@ export default function EditProfileForm() {
 
   useEffect(() => {
     async function fetchProfile() {
-      const response = await fetch('/api/profile');
-      const data = await response.json();
-      if (response.ok) {
+      try {
+        const response = await fetch('/api/profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        const data = await response.json();
         setFormData(data.user);
-      } else {
+      } catch (error) {
         setError('Failed to load profile data');
       }
     }
@@ -35,18 +38,22 @@ export default function EditProfileForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const response = await fetch('/api/profile', {
-      method: 'POST',
-      body: JSON.stringify(formData),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (response.ok) {
-      router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
-    } else {
-      setError('Failed to update profile');
+      if (response.ok) {
+        router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error: any) {
+      setError(error.message);
     }
   }
 

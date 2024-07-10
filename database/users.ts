@@ -116,7 +116,12 @@ export async function updateUserProfile(
   const birthdateValue = profileData.birthdate
     ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
     : null;
-
+  const locationValue = profileData.location
+    ? `(${profileData.location
+        .split(',')
+        .map((c: string) => parseFloat(c).toFixed(2))
+        .join(',')})`
+    : null;
   const users = await sql<UserProfile[]>`
     UPDATE users
     SET
@@ -141,7 +146,7 @@ export async function updateUserProfile(
         user_image
       ),
       location = coalesce(
-        ${profileData.location ?? null}::POINT,
+        ${locationValue}::POINT,
         location
       ),
       birthdate = coalesce(

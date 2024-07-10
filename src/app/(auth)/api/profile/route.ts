@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getUserById, updateUserProfile } from '../../../../../database/users';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
 import { getSessionByToken } from '../../../../../database/sessions';
 import { z } from 'zod';
-import { User } from '../../../../../database/users';
 import { NextRequest } from 'next/server';
 
 const profileSchema = z.object({
@@ -48,10 +51,48 @@ export async function POST(request: NextRequest) {
 
     const updatedUser = await updateUserProfile(
       session.userId,
-      result.data as Partial<User>,
+      result.data as Partial<UserProfile>,
     );
 
     return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+    if (!user) {
+      return NextResponse.json(
+        { errors: [{ message: 'User not found' }] },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ user });
   } catch (error) {
     console.error(error);
     return NextResponse.json(
