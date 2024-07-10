@@ -1,3 +1,5 @@
+// migrations/00000-createUsersTable.ts:
+
 import { Sql } from 'postgres';
 
 export async function up(sql: Sql) {
@@ -9,17 +11,16 @@ export async function up(sql: Sql) {
       password_hash varchar(255) NOT NULL,
       full_name text,
       description text,
-      profile_id bigint,
+      interests text,
+      profile_links text,
       user_image varchar(255),
       location POINT,
       birthdate date,
       profession text,
-      links text,
       created_at timestamp DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp DEFAULT CURRENT_TIMESTAMP
     )
   `;
-  // make email not null!
 
   await sql`
     CREATE
@@ -34,7 +35,7 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TRIGGER update_users_updated_at before
     UPDATE ON users FOR each ROW
-    EXECUTE procedure update_updated_at_column ();
+    EXECUTE function update_updated_at_column ();
   `;
 }
 

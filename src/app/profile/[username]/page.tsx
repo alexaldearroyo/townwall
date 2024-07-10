@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../database/users';
 import { getSessionByToken } from '../../../../database/sessions';
 import ProfilePageClient from '../../profile/ProfilePageClient';
+import Link from 'next/link';
 
 export default async function ProfilePage({
   params,
@@ -43,5 +44,16 @@ export default async function ProfilePage({
     );
   }
 
-  return <ProfilePageClient user={user} />;
+  return (
+    <div>
+      <ProfilePageClient user={user} />
+      {session.userId === user.id && (
+        <div className="flex justify-center mt-4">
+          <Link href="/profile/edit" className="btn btn-primary">
+            Edit Profile
+          </Link>
+        </div>
+      )}
+    </div>
+  );
 }

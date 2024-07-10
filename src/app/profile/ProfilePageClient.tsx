@@ -5,7 +5,17 @@ import React, { useState } from 'react';
 export default function ProfilePageClient({
   user,
 }: {
-  user: { username: string };
+  user: {
+    username: string;
+    fullName?: string | null;
+    description?: string | null;
+    interests?: string | null;
+    profileLinks?: string | null;
+    userImage?: string | null;
+    location?: string | null;
+    birthdate?: string | null;
+    profession?: string | null;
+  };
 }) {
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +59,34 @@ export default function ProfilePageClient({
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Welcome, {user.username}
         </h1>
+        {!!user.userImage && (
+          <img
+            src={user.userImage}
+            alt={`${user.username}`}
+            className="w-32 h-32 mx-auto rounded-full"
+          />
+        )}
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.fullName}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.description}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.interests}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.profileLinks}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.location}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.birthdate}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {user.profession}
+        </p>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <button
           onClick={handleLogout}
@@ -61,6 +99,12 @@ export default function ProfilePageClient({
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
           Delete Account
+        </button>
+        <button
+          onClick={() => (window.location.href = `/profile/edit`)}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Edit Profile
         </button>
       </div>
     </div>
