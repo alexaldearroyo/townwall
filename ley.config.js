@@ -1,4 +1,4 @@
-import { postgresConfig, setEnvironmentVariables } from './utils/config.js';
+import { postgresConfig, setEnvironmentVariables } from './util/config.js';
 
 setEnvironmentVariables();
 
