@@ -1099,8 +1099,8 @@ import React from 'react';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <p className="text-gray-600 mb-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-black py-12 px-4 sm:px-6 lg:px-8">
+      <p className="text-gray-600 dark:text-black mb-8">
         Get started by registering an account or signing in.
       </p>
       <div className="space-x-4">
@@ -1112,7 +1112,7 @@ export default function Home() {
         </a>
         <a
           href="/login"
-          className="px-4 py-2 bg-gray-200 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-black text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
         >
           Sign In
         </a>
@@ -1132,39 +1132,79 @@ export default function Home() {
 @tailwind utilities;
 
 :root {
-  --foreground-color: #000000;
-  --background-color: #ffffff;
+  --foreground-color: #000000; /* Color del texto en modo claro y oscuro */
+  --background-color: #ffffff; /* Color de fondo en modo claro */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-color: #ffffff;
-    --background-color: #000000;
+    --foreground-color: #000000; /* Color del texto en modo oscuro */
+    --background-color: #000000; /* Color de fondo en modo oscuro */
   }
 }
 
 body {
   color: var(--foreground-color);
   background-color: var(--background-color);
-  margin: 0; /* Ensure no default margin/padding */
-  padding: 0; /* Ensure no default margin/padding */
-  box-sizing: border-box; /* Ensure box sizing is consistent */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Add this to ensure dark mode works when toggled manually */
+.dark body {
+  color: #000000;
+  background-color: #000000;
 }
 
 ----------------------------------------
 
 // src/components/Header.tsx:
 
-// src/components/Header.tsx
+'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 
 export default function Header() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    // Load the theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', newTheme);
+  };
+
   return (
-    <header className="header bg-gray-800 text-white p-4">
+    <header className="header bg-gray-800 text-white p-4 flex justify-between items-center">
       <div className="container mx-auto">
         <h1 className="text-2xl font-bold">Townwall</h1>
       </div>
+      <button onClick={toggleTheme}>
+        {theme === 'light' ? (
+          <MoonIcon className="h-6 w-6 text-white" />
+        ) : (
+          <SunIcon className="h-6 w-6 text-white" />
+        )}
+      </button>
     </header>
   );
 }
