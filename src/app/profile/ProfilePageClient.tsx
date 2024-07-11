@@ -7,14 +7,14 @@ export default function ProfilePageClient({
 }: {
   user: {
     username: string;
-    fullName?: string | null;
-    description?: string | null;
-    interests?: string | null;
-    profileLinks?: string | null;
-    userImage?: string | null;
-    location?: string | null;
-    birthdate?: string | null;
-    profession?: string | null;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: string;
+    birthdate?: string;
+    profession?: string;
   };
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -66,37 +66,37 @@ export default function ProfilePageClient({
             className="w-32 h-32 mx-auto rounded-full"
           />
         )}
-        {!!user.fullName && (
+        {!!user.fullName && user.fullName.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Full Name: {user.fullName}
           </p>
         )}
-        {!!user.description && (
+        {!!user.description && user.description.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Description: {user.description}
           </p>
         )}
-        {!!user.interests && (
+        {!!user.interests && user.interests.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Interests: {user.interests}
           </p>
         )}
-        {!!user.profileLinks && (
+        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Links: {user.profileLinks}
           </p>
         )}
-        {!!user.location && (
+        {!!user.location && user.location.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Location: {user.location}
           </p>
         )}
-        {!!user.birthdate && (
+        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Birthdate: {user.birthdate}
           </p>
         )}
-        {!!user.profession && (
+        {!!user.profession && user.profession.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             Profession: {user.profession}
           </p>

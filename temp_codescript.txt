@@ -123,6 +123,17 @@ export type User = {
   id: number;
   username: string;
   passwordHash: string;
+  email?: string | null;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  userImage?: string | null;
+  location?: any;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 };
 
 export type UserProfile = {
@@ -189,11 +200,39 @@ export async function createUser(
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
-  const users = await sql<User[]>`
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string | null;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+    }[]
+  >`
     SELECT
       id,
       username,
-      password_hash AS "passwordHash"
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
     FROM
       users
     WHERE
@@ -205,7 +244,9 @@ export async function getUserByUsername(
 
 // Function to get a user by their ID
 export async function getUserById(id: number): Promise<User | undefined> {
-  const users = await sql<User[]>`
+  const users = await sql<
+    { id: number; username: string; passwordHash: string }[]
+  >`
     SELECT
       id,
       username,
@@ -641,14 +682,14 @@ export default function ProfilePageClient({
 }: {
   user: {
     username: string;
-    fullName?: string | null;
-    description?: string | null;
-    interests?: string | null;
-    profileLinks?: string | null;
-    userImage?: string | null;
-    location?: string | null;
-    birthdate?: string | null;
-    profession?: string | null;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: string;
+    birthdate?: string;
+    profession?: string;
   };
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -696,7 +737,7 @@ export default function ProfilePageClient({
         {!!user.userImage && (
           <img
             src={user.userImage}
-            alt={`${user.username}`}
+            alt={user.username} /*change*/
             className="w-32 h-32 mx-auto rounded-full"
           />
         )}
@@ -1070,9 +1111,21 @@ export default async function ProfilePage({
     );
   }
 
+  const userProfile = {
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
   return (
     <div>
-      <ProfilePageClient user={user} />
+      <ProfilePageClient user={userProfile} />
       {session.userId === user.id && (
         <div className="flex justify-center mt-4">
           <Link href="/profile/edit" className="btn btn-primary">

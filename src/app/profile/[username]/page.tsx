@@ -52,14 +52,14 @@ export default async function ProfilePage({
 
   const userProfile = {
     username: user.username,
-    fullName: user.fullName,
-    description: user.description,
-    interests: user.interests,
-    profileLinks: user.profileLinks,
-    userImage: user.userImage,
-    location: user.location,
-    birthdate: user.birthdate ? user.birthdate.toISOString() : undefined,
-    profession: user.profession,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
   };
 
   return (
