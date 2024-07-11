@@ -5,21 +5,27 @@
 @tailwind utilities;
 
 :root {
-  --foreground-color: #000000;
-  --background-color: #ffffff;
+  --foreground-color: #000000; /* Color del texto en modo claro y oscuro */
+  --background-color: #ffffff; /* Color de fondo en modo claro */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-color: #ffffff;
-    --background-color: #000000;
+    --foreground-color: #000000; /* Color del texto en modo oscuro */
+    --background-color: #000000; /* Color de fondo en modo oscuro */
   }
 }
 
 body {
   color: var(--foreground-color);
   background-color: var(--background-color);
-  margin: 0; /* Ensure no default margin/padding */
-  padding: 0; /* Ensure no default margin/padding */
-  box-sizing: border-box; /* Ensure box sizing is consistent */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Add this to ensure dark mode works when toggled manually */
+.dark body {
+  color: #000000;
+  background-color: #000000;
 }
