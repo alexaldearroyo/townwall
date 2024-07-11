@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 
 export default function Header() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -34,11 +35,12 @@ export default function Header() {
       <div className="container mx-auto">
         <h1 className="text-2xl font-bold">Townwall</h1>
       </div>
-      <button
-        onClick={toggleTheme}
-        className="bg-gray-200 text-gray-800 p-2 rounded"
-      >
-        {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+      <button onClick={toggleTheme}>
+        {theme === 'light' ? (
+          <MoonIcon className="h-6 w-6 text-white" />
+        ) : (
+          <SunIcon className="h-6 w-6 text-white" />
+        )}
       </button>
     </header>
   );

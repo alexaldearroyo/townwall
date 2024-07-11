@@ -12,6 +12,7 @@
     "start": "next start -p 8080 -H 0.0.0.0"
   },
   "dependencies": {
+    "@heroicons/react": "^2.1.5",
     "@types/bcrypt": "^5.0.2",
     "@upleveled/ley": "^0.8.6",
     "bcrypt": "^5.1.1",

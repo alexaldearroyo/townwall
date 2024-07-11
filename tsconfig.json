@@ -7,8 +7,8 @@
         "name": "next"
       }
     ],
-    "jsx": "preserve",
-    "typeRoots": ["./node_modules/@types", "./types"]
+    "typeRoots": ["./node_modules/@types", "types"],
+    "jsx": "preserve"
   },
   "include": [
     "**/*.ts",
