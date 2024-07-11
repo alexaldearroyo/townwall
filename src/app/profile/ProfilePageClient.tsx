@@ -59,13 +59,9 @@ export default function ProfilePageClient({
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Welcome, {user.username}
         </h1>
-        {user.userImage ? (
-          <img
-            src={user.userImage}
-            alt={user.username}
-            className="w-32 h-32 mx-auto rounded-full"
-          />
-        ) : null}
+        <div className="text-center mx-auto">
+          <span className="text-9xl">{user.userImage}</span>
+        </div>
 
         {!!user.fullName && user.fullName.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">

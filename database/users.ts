@@ -1,16 +1,34 @@
 import { sql } from './connect';
 import bcrypt from 'bcrypt';
 
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
 export type User = {
   id: number;
   username: string;
   passwordHash: string;
+  userImage?: string | null;
   email?: string | null;
   fullName?: string | null;
   description?: string | null;
   interests?: string | null;
   profileLinks?: string | null;
-  userImage?: string | null;
   location?: any;
   birthdate?: Date | null;
   profession?: string | null;
@@ -34,47 +52,70 @@ export type UserProfile = {
   updatedAt: Date | null;
 };
 
-// Function to create a user
+// Función para crear un usuario
 export async function createUser(
   username: string,
   password: string,
 ): Promise<User> {
-  const passwordHash = await bcrypt.hash(password, 10); // Hash password
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
 
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-    }[]
-  >`
-    INSERT INTO
-      users (username, password_hash)
-    VALUES
-      (
-        ${username},
-        ${passwordHash}
-      )
-    RETURNING
-      id,
-      username,
-      password_hash AS "passwordHash"
-  `;
+  const users = await new Promise<any>((resolve, reject) => {
+    sql<
+      {
+        id: number;
+        username: string;
+        passwordHash: string;
+        userImage: string | null;
+      }[]
+    >`
+      INSERT INTO
+        users (
+          username,
+          password_hash,
+          user_image
+        )
+      VALUES
+        (
+          ${username},
+          ${passwordHash},
+          ${randomEmoji}
+        )
+      RETURNING
+        id,
+        username,
+        password_hash AS "passwordHash",
+        user_image AS "userImage"
+    `
+      .then(resolve)
+      .catch(reject);
+  });
 
-  const user = users[0] as {
-    id: number;
-    username: string;
-    passwordHash: string;
-  };
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
 
+  const user = users[0];
   return {
     id: user.id,
     username: user.username,
     passwordHash: user.passwordHash,
+    userImage: user.userImage,
+    email: user.email,
+    fullName: user.fullName,
+    description: user.description,
+    interests: user.interests,
+    profileLinks: user.profileLinks,
+    location: user.location,
+    birthdate: user.birthdate,
+    profession: user.profession,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
   };
 }
 
-// Function to get a user by their username
+// Función para obtener un usuario por su username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
@@ -83,34 +124,14 @@ export async function getUserByUsername(
       id: number;
       username: string;
       passwordHash: string;
-      email: string | null;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
       userImage: string | null;
-      location: unknown | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
     }[]
   >`
     SELECT
       id,
       username,
       password_hash AS "passwordHash",
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      location,
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
+      user_image AS "userImage"
     FROM
       users
     WHERE
@@ -120,15 +141,21 @@ export async function getUserByUsername(
   return users[0] || undefined;
 }
 
-// Function to get a user by their ID
+// Función para obtener un usuario por su ID
 export async function getUserById(id: number): Promise<User | undefined> {
   const users = await sql<
-    { id: number; username: string; passwordHash: string }[]
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string | null;
+    }[]
   >`
     SELECT
       id,
       username,
-      password_hash AS "passwordHash"
+      password_hash AS "passwordHash",
+      user_image AS "userImage"
     FROM
       users
     WHERE
@@ -138,6 +165,7 @@ export async function getUserById(id: number): Promise<User | undefined> {
   return users[0] || undefined;
 }
 
+// Función para eliminar un usuario por su ID
 export async function deleteUserById(id: number): Promise<void> {
   await sql`
     DELETE FROM users
