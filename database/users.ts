@@ -67,10 +67,6 @@ export async function createUser(
     passwordHash: string;
   };
 
-  if (!user) {
-    throw new Error('User creation failed');
-  }
-
   return {
     id: user.id,
     username: user.username,

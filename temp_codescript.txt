@@ -185,10 +185,6 @@ export async function createUser(
     passwordHash: string;
   };
 
-  if (!user) {
-    throw new Error('User creation failed');
-  }
-
   return {
     id: user.id,
     username: user.username,
@@ -671,7 +667,6 @@ export const config = {
 
 ----------------------------------------
 
-
 // src/app/profile/ProfilePageClient.tsx:
 
 'use client';
@@ -808,40 +803,13 @@ export default function ProfilePageClient({
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function EditProfileForm() {
-  const [formData, setFormData] = useState({
-    username: '',
-    fullName: '',
-    description: '',
-    interests: '',
-    profileLinks: '',
-    userImage: '',
-    location: '',
-    birthdate: '',
-    profession: '',
-  });
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const response = await fetch('/api/profile');
-        if (!response.ok) {
-          throw new Error('Failed to fetch profile');
-        }
-        const data = await response.json();
-        setFormData(data.user);
-      } catch (error) {
-        setError('Failed to load profile data');
-      }
-    }
-
-    fetchProfile();
-  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -860,8 +828,8 @@ export default function EditProfileForm() {
       } else {
         throw new Error('Failed to update profile');
       }
-    } catch (error: any) {
-      setError(error.message);
+    } catch (catchError: any) {
+      setError(catchError.message);
     }
   }
 
@@ -869,7 +837,7 @@ export default function EditProfileForm() {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
     const { name, value } = event.target;
-    setFormData((prevData) => ({
+    setFormData((prevData: any) => ({
       ...prevData,
       [name]: value,
     }));
@@ -881,6 +849,38 @@ export default function EditProfileForm() {
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Edit Profile
         </h1>
+        <div className="p-4 mb-4 bg-gray-200 dark:bg-gray-700 rounded-md">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            Current User Data
+          </h2>
+          <p>
+            <strong>Username:</strong> {formData.username}
+          </p>
+          <p>
+            <strong>Full Name:</strong> {formData.fullName || 'N/A'}
+          </p>
+          <p>
+            <strong>Description:</strong> {formData.description || 'N/A'}
+          </p>
+          <p>
+            <strong>Interests:</strong> {formData.interests || 'N/A'}
+          </p>
+          <p>
+            <strong>Profile Links:</strong> {formData.profileLinks || 'N/A'}
+          </p>
+          <p>
+            <strong>Picture URL:</strong> {formData.userImage || 'N/A'}
+          </p>
+          <p>
+            <strong>Location:</strong> {formData.location || 'N/A'}
+          </p>
+          <p>
+            <strong>Birthdate:</strong> {formData.birthdate || 'N/A'}
+          </p>
+          <p>
+            <strong>Profession:</strong> {formData.profession || 'N/A'}
+          </p>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}
           <div>
@@ -893,7 +893,6 @@ export default function EditProfileForm() {
             <input
               id="username"
               name="username"
-              type="text"
               value={formData.username}
               onChange={handleChange}
               disabled // Disable editing of username
@@ -910,9 +909,9 @@ export default function EditProfileForm() {
             <input
               id="fullName"
               name="fullName"
-              type="text"
               value={formData.fullName}
               onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -941,7 +940,6 @@ export default function EditProfileForm() {
             <input
               id="interests"
               name="interests"
-              type="text"
               value={formData.interests}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -957,7 +955,6 @@ export default function EditProfileForm() {
             <input
               id="profileLinks"
               name="profileLinks"
-              type="text"
               value={formData.profileLinks}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -973,7 +970,6 @@ export default function EditProfileForm() {
             <input
               id="userImage"
               name="userImage"
-              type="text"
               value={formData.userImage}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -984,12 +980,11 @@ export default function EditProfileForm() {
               htmlFor="location"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Localization
+              Location
             </label>
             <input
               id="location"
               name="location"
-              type="text"
               value={formData.location}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -1021,17 +1016,13 @@ export default function EditProfileForm() {
             <input
               id="profession"
               name="profession"
-              type="text"
               value={formData.profession}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
           <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
               Save Changes
             </button>
           </div>
@@ -1045,14 +1036,59 @@ export default function EditProfileForm() {
 
 // src/app/profile/edit/page.tsx:
 
-// src/app/profile/edit/page.tsx
-
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserById, getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
 import EditProfileForm from './EditProfileForm';
 
-export default function EditProfilePage() {
+export default async function EditProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    username: user.username,
+    fullName: user.fullName || '',
+    description: user.description || '',
+    interests: user.interests || '',
+    profileLinks: user.profileLinks || '',
+    userImage: user.userImage || '',
+    location: user.location || '',
+    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
+    profession: user.profession || '',
+  };
+
   return (
     <div className="main-content form-container bg-white dark:bg-gray-900">
-      <EditProfileForm />
+      <EditProfileForm user={userProfile} />
     </div>
   );
 }
@@ -1137,6 +1173,303 @@ export default async function ProfilePage({
       )}
     </div>
   );
+}
+
+----------------------------------------
+
+// src/app/layout.tsx:
+
+// src/app/layout.tsx
+
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Header from '../components/Header';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Townwall',
+  description: 'Connect with people locally',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Header />
+        <main className="main-content">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/RegisterForm.tsx:
+
+// src/app/(auth)/register/RegisterForm.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(data ? data.errors[0].message : 'Invalid username or password');
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign Up
+        </h1>
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/page.tsx:
+
+// src/app/(auth)/register/page.tsx
+
+'use client';
+
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <RegisterForm />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/delete/route.ts:
+
+// src/app/(auth)/api/delete/route.ts
+
+import { NextResponse } from 'next/server';
+import { getUserById, deleteUserById } from '../../../../../database/users';
+import {
+  getSessionByToken,
+  deleteSessionByToken,
+} from '../../../../../database/sessions';
+
+export async function POST(request: Request) {
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.json(
+      { errors: [{ message: 'Invalid session token' }] },
+      { status: 401 },
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return NextResponse.json(
+      { errors: [{ message: 'User not found' }] },
+      { status: 404 },
+    );
+  }
+
+  await deleteUserById(user.id);
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'User deleted successfully' });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/logout/route.ts:
+
+// src/app/(auth)/api/logout/route.ts
+import { deleteSessionByToken } from '../../../../../database/sessions';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'Logged out successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/register/route.ts:
+
+// src/app/(auth)/api/register/route.ts
+
+import { NextResponse } from 'next/server';
+import { createUser, getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const existingUser = await getUserByUsername(result.data.username);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+
+    const user = await createUser(result.data.username, result.data.password);
+
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------
@@ -1237,6 +1570,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    console.log(user);
+
     return NextResponse.json({ user });
   } catch (error) {
     console.error(error);
@@ -1247,9 +1582,323 @@ export async function GET(request: NextRequest) {
   }
 }
 
+----------------------------------------
 
+// src/app/(auth)/api/login/route.ts:
+
+import { NextResponse } from 'next/server';
+import { getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
+
+const loginSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<LoginResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    console.log('Received login request:', body);
+
+    const result = loginSchema.safeParse(body);
+
+    if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsername(result.data.username);
+
+    if (!user) {
+      console.log('User not found:', result.data.username);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    // Add a log to verify the result of bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
+
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.username);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
+    const response = NextResponse.json({ user }, { status: 200 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
 
 ----------------------------------------
 
+// src/app/(auth)/login/LoginForm.tsx:
 
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LoginForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    console.log('Attempting login with:', { username, password });
+
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      console.log('Login successful:', data);
+      router.push(`/profile/${username}`); // Redirect to profile page
+    } else {
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign In
+        </h1>
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/page.tsx:
+
+// src/app/(auth)/login/page.tsx
+
+'use client';
+
+import LoginForm from './LoginForm';
+
+export default function LoginPage() {
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <LoginForm />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/page.tsx:
+
+// src/app/page.tsx
+
+import React from 'react';
+
+export default function Home() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
+          Get started by registering an account or signing in.
+        </p>
+        <div className="flex justify-center space-x-4">
+          <a
+            href="/register"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+          >
+            Sign Up
+          </a>
+          <a
+            href="/login"
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/globals.css:
+
+/* src/app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-color: #000000; /* Color del texto en modo claro y oscuro */
+  --background-color: #ffffff; /* Color de fondo en modo claro */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-color: #000000; /* Color del texto en modo oscuro */
+    --background-color: #000000; /* Color de fondo en modo oscuro */
+  }
+}
+
+body {
+  color: var(--foreground-color);
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Add this to ensure dark mode works when toggled manually */
+.dark body {
+  color: #000000;
+  background-color: #000000;
+}
+
+----------------------------------------
+
+// src/components/Header.tsx:
+
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+
+export default function Header() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    // Load the theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', newTheme);
+  };
+
+  return (
+    <header className="header bg-gray-800 text-white p-4 flex justify-between items-center">
+      <div className="container mx-auto">
+        <h1 className="text-2xl font-bold">Townwall</h1>
+      </div>
+      <button onClick={toggleTheme}>
+        {theme === 'light' ? (
+          <MoonIcon className="h-6 w-6 text-white" />
+        ) : (
+          <SunIcon className="h-6 w-6 text-white" />
+        )}
+      </button>
+    </header>
+  );
+}
+
+----------------------------------------
 

@@ -1,39 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function EditProfileForm() {
-  const [formData, setFormData] = useState({
-    username: '',
-    fullName: '',
-    description: '',
-    interests: '',
-    profileLinks: '',
-    userImage: '',
-    location: '',
-    birthdate: '',
-    profession: '',
-  });
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const response = await fetch('/api/profile');
-        if (!response.ok) {
-          throw new Error('Failed to fetch profile');
-        }
-        const data = await response.json();
-        setFormData(data.user);
-      } catch (error) {
-        setError('Failed to load profile data');
-      }
-    }
-
-    fetchProfile();
-  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,8 +25,8 @@ export default function EditProfileForm() {
       } else {
         throw new Error('Failed to update profile');
       }
-    } catch (error: any) {
-      setError(error.message);
+    } catch (catchError: any) {
+      setError(catchError.message);
     }
   }
 
@@ -61,7 +34,7 @@ export default function EditProfileForm() {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
     const { name, value } = event.target;
-    setFormData((prevData) => ({
+    setFormData((prevData: any) => ({
       ...prevData,
       [name]: value,
     }));
@@ -73,6 +46,38 @@ export default function EditProfileForm() {
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Edit Profile
         </h1>
+        <div className="p-4 mb-4 bg-gray-200 dark:bg-gray-700 rounded-md">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            Current User Data
+          </h2>
+          <p>
+            <strong>Username:</strong> {formData.username}
+          </p>
+          <p>
+            <strong>Full Name:</strong> {formData.fullName || 'N/A'}
+          </p>
+          <p>
+            <strong>Description:</strong> {formData.description || 'N/A'}
+          </p>
+          <p>
+            <strong>Interests:</strong> {formData.interests || 'N/A'}
+          </p>
+          <p>
+            <strong>Profile Links:</strong> {formData.profileLinks || 'N/A'}
+          </p>
+          <p>
+            <strong>Picture URL:</strong> {formData.userImage || 'N/A'}
+          </p>
+          <p>
+            <strong>Location:</strong> {formData.location || 'N/A'}
+          </p>
+          <p>
+            <strong>Birthdate:</strong> {formData.birthdate || 'N/A'}
+          </p>
+          <p>
+            <strong>Profession:</strong> {formData.profession || 'N/A'}
+          </p>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           {!!error && <p className="text-red-500">{error}</p>}
           <div>
@@ -85,7 +90,6 @@ export default function EditProfileForm() {
             <input
               id="username"
               name="username"
-              type="text"
               value={formData.username}
               onChange={handleChange}
               disabled // Disable editing of username
@@ -102,9 +106,9 @@ export default function EditProfileForm() {
             <input
               id="fullName"
               name="fullName"
-              type="text"
               value={formData.fullName}
               onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
@@ -133,7 +137,6 @@ export default function EditProfileForm() {
             <input
               id="interests"
               name="interests"
-              type="text"
               value={formData.interests}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -149,7 +152,6 @@ export default function EditProfileForm() {
             <input
               id="profileLinks"
               name="profileLinks"
-              type="text"
               value={formData.profileLinks}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -165,7 +167,6 @@ export default function EditProfileForm() {
             <input
               id="userImage"
               name="userImage"
-              type="text"
               value={formData.userImage}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -176,12 +177,11 @@ export default function EditProfileForm() {
               htmlFor="location"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Localization
+              Location
             </label>
             <input
               id="location"
               name="location"
-              type="text"
               value={formData.location}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -213,17 +213,13 @@ export default function EditProfileForm() {
             <input
               id="profession"
               name="profession"
-              type="text"
               value={formData.profession}
               onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
           <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
               Save Changes
             </button>
           </div>
