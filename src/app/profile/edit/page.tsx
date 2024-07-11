@@ -1,3 +1,5 @@
+// src/app/profile/edit/page.tsx
+
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserById, getUserByUsername } from '../../../../database/users';

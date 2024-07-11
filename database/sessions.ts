@@ -15,9 +15,9 @@ export async function createSession(userId: number): Promise<Session> {
 
   const [session] = await sql<
     {
-      id: number | null;
-      userId: number | null;
-      token: string | null;
+      id: number;
+      userId: number;
+      token: string;
       createdAt: Date | null;
       expiresAt: Date | null;
     }[]
@@ -42,9 +42,9 @@ export async function createSession(userId: number): Promise<Session> {
   }
 
   return {
-    id: session.id!,
-    userId: session.userId!,
-    token: session.token!,
+    id: session.id,
+    userId: session.userId,
+    token: session.token,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
   };

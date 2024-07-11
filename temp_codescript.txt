@@ -170,7 +170,7 @@ export type UserProfile = {
   updatedAt: Date | null;
 };
 
-// Función para crear un usuario
+// Function to create a user
 export async function createUser(
   username: string,
   password: string,
@@ -233,7 +233,7 @@ export async function createUser(
   };
 }
 
-// Función para obtener un usuario por su username
+// Function to get a user by their username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
@@ -242,14 +242,34 @@ export async function getUserByUsername(
       id: number;
       username: string;
       passwordHash: string;
+      email: string | null;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
       userImage: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
     }[]
   >`
     SELECT
       id,
       username,
       password_hash AS "passwordHash",
-      user_image AS "userImage"
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
     FROM
       users
     WHERE
@@ -697,6 +717,8 @@ export const config = {
 
 // src/app/profile/ProfilePageClient.tsx:
 
+// profilepageclient new
+
 'use client';
 
 import React, { useState } from 'react';
@@ -827,13 +849,17 @@ export default function ProfilePageClient({
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function EditProfileForm({ user }: { user: any }) {
   const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+  }, [user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -848,7 +874,7 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
+        router.push(`/profile/${formData.username}`); // Redirect using the username
       } else {
         throw new Error('Failed to update profile');
       }
@@ -1059,6 +1085,8 @@ export default function EditProfileForm({ user }: { user: any }) {
 ----------------------------------------
 
 // src/app/profile/edit/page.tsx:
+
+// src/app/profile/edit/page.tsx
 
 import React from 'react';
 import { cookies } from 'next/headers';

@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function EditProfileForm({ user }: { user: any }) {
   const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+  }, [user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,7 +25,7 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}`); // Redirigir usando el nombre de usuario
+        router.push(`/profile/${formData.username}`); // Redirect using the username
       } else {
         throw new Error('Failed to update profile');
       }
