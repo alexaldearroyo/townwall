@@ -52,7 +52,7 @@ export type UserProfile = {
   updatedAt: Date | null;
 };
 
-// Función para crear un usuario
+// Function to create a user
 export async function createUser(
   username: string,
   password: string,
@@ -115,7 +115,7 @@ export async function createUser(
   };
 }
 
-// Función para obtener un usuario por su username
+// Function to get a user by their username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
@@ -124,14 +124,34 @@ export async function getUserByUsername(
       id: number;
       username: string;
       passwordHash: string;
+      email: string | null;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
       userImage: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
     }[]
   >`
     SELECT
       id,
       username,
       password_hash AS "passwordHash",
-      user_image AS "userImage"
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
     FROM
       users
     WHERE
