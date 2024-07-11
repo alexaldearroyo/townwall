@@ -82,7 +82,24 @@ export async function createUser(
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
-  const users = await sql<User[]>`
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string | null;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+    }[]
+  >`
     SELECT
       id,
       username,
@@ -109,7 +126,9 @@ export async function getUserByUsername(
 
 // Function to get a user by their ID
 export async function getUserById(id: number): Promise<User | undefined> {
-  const users = await sql<User[]>`
+  const users = await sql<
+    { id: number; username: string; passwordHash: string }[]
+  >`
     SELECT
       id,
       username,
