@@ -5,6 +5,17 @@ export type User = {
   id: number;
   username: string;
   passwordHash: string;
+  email?: string | null;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  userImage?: string | null;
+  location?: any;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 };
 
 export type UserProfile = {
@@ -75,7 +86,18 @@ export async function getUserByUsername(
     SELECT
       id,
       username,
-      password_hash AS "passwordHash"
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
     FROM
       users
     WHERE

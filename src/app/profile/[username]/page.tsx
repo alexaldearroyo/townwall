@@ -50,9 +50,21 @@ export default async function ProfilePage({
     );
   }
 
+  const userProfile = {
+    username: user.username,
+    fullName: user.fullName,
+    description: user.description,
+    interests: user.interests,
+    profileLinks: user.profileLinks,
+    userImage: user.userImage,
+    location: user.location,
+    birthdate: user.birthdate ? user.birthdate.toISOString() : undefined,
+    profession: user.profession,
+  };
+
   return (
     <div>
-      <ProfilePageClient user={user} />
+      <ProfilePageClient user={userProfile} />
       {session.userId === user.id && (
         <div className="flex justify-center mt-4">
           <Link href="/profile/edit" className="btn btn-primary">

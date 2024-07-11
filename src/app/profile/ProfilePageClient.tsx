@@ -62,7 +62,7 @@ export default function ProfilePageClient({
         {!!user.userImage && (
           <img
             src={user.userImage}
-            alt={`${user.username}`}
+            alt={user.username} /*change*/
             className="w-32 h-32 mx-auto rounded-full"
           />
         )}
