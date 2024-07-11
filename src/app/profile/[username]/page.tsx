@@ -1,5 +1,3 @@
-// src/app/profile/[username]/page.tsx
-
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../database/users';
@@ -40,6 +38,14 @@ export default async function ProfilePage({
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  if (session.userId !== user.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Access denied</p>
       </div>
     );
   }

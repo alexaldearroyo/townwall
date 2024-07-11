@@ -1,9 +1,7 @@
-// src/app/middleware.ts
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSessionByToken } from '../../database/sessions';
-import { getUserById } from '../../database/users';
+import { getUserById, getUserByUsername } from '../../database/users';
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
@@ -26,8 +24,13 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  if (pathname === '/profile') {
-    return NextResponse.redirect(`/profile/${user.username}`);
+  // Check if the user is trying to access the profile of another user
+  const profileMatch = pathname.match(/^\/profile\/([^\/]+)$/);
+  if (profileMatch) {
+    const username = profileMatch[1];
+    if (username !== user.username) {
+      return NextResponse.redirect(`/profile/${user.username}`);
+    }
   }
 
   return NextResponse.next();
