@@ -1,783 +1,9 @@
-// database/connect.ts:
-
-// import 'server-only';
-import { unstable_noStore as noStore } from 'next/cache';
-import postgres, { Sql } from 'postgres';
-import postgresConfig from '../ley.config.js';
-import { setEnvironmentVariables } from '../util/config.js';
-
-setEnvironmentVariables();
-
-declare module globalThis {
-  let postgresSqlClient: Sql;
-}
-
-function connectOneTimeToDatabase() {
-  if (!('postgresSqlClient' in globalThis)) {
-    globalThis.postgresSqlClient = postgres(postgresConfig);
-  }
-
-  return ((
-    ...sqlParameters: Parameters<typeof globalThis.postgresSqlClient>
-  ) => {
-    noStore();
-    return globalThis.postgresSqlClient(...sqlParameters);
-  }) as typeof globalThis.postgresSqlClient;
-}
-
-export const sql = connectOneTimeToDatabase();
-
-----------------------------------------
-
-// database/posts.ts:
-
-// database/posts.ts
-
-import { sql } from './connect';
-
-export type Post = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId?: string | number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  slug: string;
-};
-
-export async function getPostsByUserId(userId: number) {
-  const posts = await sql<
-    {
-      id: number;
-      userId: number;
-      icon: string | null;
-      title: string;
-      content: string;
-      categoryId: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      slug: string;
-    }[]
-  >`
-    SELECT
-      *
-    FROM
-      posts
-    WHERE
-      user_id = ${userId}
-  `;
-  return posts;
-}
-
-export async function createPost(
-  userId: number,
-  title: string,
-  content: string,
-  icon: string = '',
-  categoryId?: number,
-): Promise<Post> {
-  const slug = title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
-  const [post] = await sql<
-    {
-      id: number;
-      userId: number;
-      icon: string | null;
-      title: string;
-      content: string;
-      categoryId: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      slug: string;
-    }[]
-  >`
-    INSERT INTO
-      posts (
-        user_id,
-        icon,
-        title,
-        content,
-        category_id,
-        slug
-      )
-    VALUES
-      (
-        ${userId},
-        ${icon || null},
-        ${title},
-        ${content},
-        ${categoryId ?? null},
-        ${slug}
-      )
-    RETURNING
-      *
-  `;
-
-  if (!post) {
-    throw new Error('Failed to create post');
-  }
-
-  const createdAt = post.createdAt ? new Date(post.createdAt) : new Date();
-  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
-
-  const result: Post = {
-    ...post,
-    createdAt,
-    updatedAt,
-  };
-
-  return result;
-}
-
-----------------------------------------
-
-// database/sessions.ts:
-
-import { sql } from './connect';
-import crypto from 'node:crypto';
-
-export type Session = {
-  id: number;
-  userId: number;
-  token: string;
-  createdAt: Date | null;
-  expiresAt: Date | null;
-};
-
-// Function to create a session
-export async function createSession(userId: number): Promise<Session> {
-  const token = crypto.randomBytes(32).toString('hex');
-
-  const [session] = await sql<
-    {
-      id: number;
-      userId: number;
-      token: string;
-      createdAt: Date | null;
-      expiresAt: Date | null;
-    }[]
-  >`
-    INSERT INTO
-      sessions (user_id, token)
-    VALUES
-      (
-        ${userId},
-        ${token}
-      )
-    RETURNING
-      id,
-      user_id AS "userId",
-      token,
-      created_at AS "createdAt",
-      expires_at AS "expiresAt"
-  `;
-
-  if (!session) {
-    throw new Error('Session creation failed');
-  }
-
-  return {
-    id: session.id,
-    userId: session.userId,
-    token: session.token,
-    createdAt: session.createdAt,
-    expiresAt: session.expiresAt,
-  };
-}
-
-// Function to get a session by token
-export async function getSessionByToken(
-  token: string,
-): Promise<Session | null> {
-  const [session] = await sql<Session[]>`
-    SELECT
-      id,
-      user_id AS "userId",
-      token,
-      created_at AS "createdAt",
-      expires_at AS "expiresAt"
-    FROM
-      sessions
-    WHERE
-      token = ${token}
-  `;
-
-  return session || null;
-}
-
-// Function to delete a session by token
-export async function deleteSessionByToken(token: string): Promise<void> {
-  await sql`
-    DELETE FROM sessions
-    WHERE
-      token = ${token}
-  `;
-}
-
-----------------------------------------
-
-// database/users.ts:
-
-import { sql } from './connect';
-import bcrypt from 'bcrypt';
-
-const animalEmojis = [
-  '🐶',
-  '🐱',
-  '🐭',
-  '🐹',
-  '🐰',
-  '🦊',
-  '🐻',
-  '🐼',
-  '🐨',
-  '🐯',
-  '🦁',
-  '🐮',
-  '🐷',
-  '🐸',
-  '🐙',
-];
-
-export type User = {
-  id: number;
-  username: string;
-  passwordHash: string;
-  userImage?: string | null;
-  email?: string | null;
-  fullName?: string | null;
-  description?: string | null;
-  interests?: string | null;
-  profileLinks?: string | null;
-  location?: any;
-  birthdate?: Date | null;
-  profession?: string | null;
-  createdAt?: Date | null;
-  updatedAt?: Date | null;
-};
-
-export type UserProfile = {
-  id: number;
-  username: string;
-  email: string | null;
-  fullName: string | null;
-  description: string | null;
-  interests: string | null;
-  profileLinks: string | null;
-  userImage: string | null;
-  location: any;
-  birthdate: Date | null;
-  profession: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-};
-
-// Function to create a user
-export async function createUser(
-  username: string,
-  password: string,
-): Promise<User> {
-  const passwordHash = await bcrypt.hash(password, 10);
-  const randomEmoji =
-    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
-
-  const users = await new Promise<any>((resolve, reject) => {
-    sql<
-      {
-        id: number;
-        username: string;
-        passwordHash: string;
-        userImage: string | null;
-      }[]
-    >`
-      INSERT INTO
-        users (
-          username,
-          password_hash,
-          user_image
-        )
-      VALUES
-        (
-          ${username},
-          ${passwordHash},
-          ${randomEmoji}
-        )
-      RETURNING
-        id,
-        username,
-        password_hash AS "passwordHash",
-        user_image AS "userImage"
-    `
-      .then(resolve)
-      .catch(reject);
-  });
-
-  if (users.length === 0) {
-    throw new Error('User creation failed');
-  }
-
-  const user = users[0];
-  return {
-    id: user.id,
-    username: user.username,
-    passwordHash: user.passwordHash,
-    userImage: user.userImage,
-    email: user.email,
-    fullName: user.fullName,
-    description: user.description,
-    interests: user.interests,
-    profileLinks: user.profileLinks,
-    location: user.location,
-    birthdate: user.birthdate,
-    profession: user.profession,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-}
-
-// Function to get a user by their username
-export async function getUserByUsername(
-  username: string,
-): Promise<User | undefined> {
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-      email: string | null;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
-      userImage: string | null;
-      location: unknown | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-    }[]
-  >`
-    SELECT
-      id,
-      username,
-      password_hash AS "passwordHash",
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      location,
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-    FROM
-      users
-    WHERE
-      username = ${username}
-  `;
-
-  return users[0] || undefined;
-}
-
-// Función para obtener un usuario por su ID
-export async function getUserById(id: number): Promise<User | undefined> {
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-      userImage: string | null;
-    }[]
-  >`
-    SELECT
-      id,
-      username,
-      password_hash AS "passwordHash",
-      user_image AS "userImage"
-    FROM
-      users
-    WHERE
-      id = ${id}
-  `;
-
-  return users[0] || undefined;
-}
-
-// Función para eliminar un usuario por su ID
-export async function deleteUserById(id: number): Promise<void> {
-  await sql`
-    DELETE FROM users
-    WHERE
-      id = ${id}
-  `;
-}
-
-export async function updateUserProfile(
-  userId: number,
-  profileData: Partial<UserProfile>,
-): Promise<UserProfile> {
-  const birthdateValue = profileData.birthdate
-    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
-    : null;
-  const locationValue = profileData.location
-    ? `(${profileData.location
-        .split(',')
-        .map((c: string) => parseFloat(c).toFixed(2))
-        .join(',')})`
-    : null;
-  const users = await sql<UserProfile[]>`
-    UPDATE users
-    SET
-      full_name = coalesce(
-        ${profileData.fullName ?? 'null'},
-        full_name
-      ),
-      description = coalesce(
-        ${profileData.description ?? 'null'},
-        description
-      ),
-      interests = coalesce(
-        ${profileData.interests ?? 'null'},
-        interests
-      ),
-      profile_links = coalesce(
-        ${profileData.profileLinks ?? 'null'},
-        profile_links
-      ),
-      user_image = coalesce(
-        ${profileData.userImage ?? 'null'},
-        user_image
-      ),
-      location = coalesce(
-        ${locationValue}::POINT,
-        location
-      ),
-      birthdate = coalesce(
-        ${birthdateValue}::date,
-        birthdate
-      ),
-      profession = coalesce(
-        ${profileData.profession ?? 'null'},
-        profession
-      ),
-      updated_at = now()
-    WHERE
-      id = ${userId}
-    RETURNING
-      id,
-      username,
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      location,
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
-  `;
-
-  const updatedUser = users[0];
-
-  if (!updatedUser) {
-    throw new Error('Profile update failed');
-  }
-
-  return updatedUser;
-}
-
-----------------------------------------
-
-// migrations/00000-createUsersTable.ts:
-
-// migrations/00000-createUsersTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users (
-      id serial PRIMARY KEY,
-      username varchar(255) NOT NULL,
-      email varchar(255),
-      password_hash varchar(255) NOT NULL,
-      full_name text,
-      description text,
-      interests text,
-      profile_links text,
-      user_image varchar(255),
-      location POINT,
-      birthdate date,
-      profession text,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_users_updated_at before
-    UPDATE ON users FOR each ROW
-    EXECUTE function update_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
-  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
-  await sql`DROP TABLE IF EXISTS users`;
-}
-
-----------------------------------------
-
-// migrations/00001-createSessionsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE sessions (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      token varchar(255) NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      expires_at timestamp
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE sessions`;
-}
-
-----------------------------------------
-
-// migrations/00002-createFollowsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE follows (
-      id serial PRIMARY KEY,
-      follower_id int NOT NULL,
-      followed_id int NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE follows`;
-}
-
-----------------------------------------
-
-// migrations/00003-createCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE comments (
-      id serial PRIMARY KEY,
-      content text NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_comments_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_comments_updated_at before
-    UPDATE ON comments FOR each ROW
-    EXECUTE procedure update_comments_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_comments_updated_at ON comments`;
-  await sql`DROP FUNCTION if EXISTS update_comments_updated_at_column`;
-  await sql`DROP TABLE comments`;
-}
-
-----------------------------------------
-
-// migrations/00004-createPostsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      icon varchar(1),
-      title varchar(255) NOT NULL,
-      content text NOT NULL,
-      category_id bigint,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_posts_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_posts_updated_at before
-    UPDATE ON posts FOR each ROW
-    EXECUTE procedure update_posts_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_posts_updated_at ON posts`;
-  await sql`DROP FUNCTION if EXISTS update_posts_updated_at_column`;
-  await sql`DROP TABLE posts`;
-}
-
-----------------------------------------
-
-// migrations/00005-createcategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE categories (
-      id serial PRIMARY KEY,
-      category_name varchar(255) NOT NULL,
-      description text
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE categories`;
-}
-
-----------------------------------------
-
-// migrations/00006-createPostsCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_categories (
-      id serial PRIMARY KEY,
-      post_id int NOT NULL,
-      category_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_categories`;
-}
-
-----------------------------------------
-
-// migrations/00007-createUsersCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users_categories (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      category_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE users_categories`;
-}
-
-----------------------------------------
-
-// migrations/00008-createProfilesCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE profiles_comments (
-      id serial PRIMARY KEY,
-      profile_id int NOT NULL,
-      comment_id int NOT NULL,
-      commenter_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE profiles_comments`;
-}
-
-----------------------------------------
-
-// migrations/00009-createPostsCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_comments (
-      id serial PRIMARY KEY,
-      profile_id bigint NOT NULL,
-      comment_id bigint NOT NULL,
-      commenter_id bigint NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_comments`;
-}
-
-----------------------------------------
-
 // src/app/middleware.ts:
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSessionByToken } from '../../database/sessions';
-import { getUserById, getUserByUsername } from '../../database/users';
+import { getUserById } from '../../database/users';
 
 export async function middleware(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
@@ -803,9 +29,9 @@ export async function middleware(request: NextRequest) {
   // Check if the user is trying to access the profile of another user
   const profileMatch = pathname.match(/^\/profile\/([^\/]+)$/);
   if (profileMatch) {
-    const username = profileMatch[1];
-    if (username !== user.username) {
-      return NextResponse.redirect(`/profile/${user.username}`);
+    const userId = profileMatch[1];
+    if (parseInt(userId ?? '') !== user.id) {
+      return NextResponse.redirect(`/profile/${user.id}`);
     }
   }
 
@@ -819,6 +45,8 @@ export const config = {
 ----------------------------------------
 
 // src/app/posts/PostForm.tsx:
+
+// src/app/posts/PostForm.tsx
 
 'use client';
 
@@ -842,18 +70,14 @@ const PostForm = () => {
     const data = await response.json();
     if (response.ok) {
       const postId = String(data.id);
-      router.push(`/posts/${postId}`);
+      router.push(`/posts/${data.userId}/${data.slug}`);
     } else {
       setError('Error creando el post');
     }
   };
 
   return (
-    // <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
     <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-      {/* <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-        Create New Post
-      </h1> */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <div>
@@ -897,7 +121,6 @@ const PostForm = () => {
         </div>
       </form>
     </div>
-    // </div>
   );
 };
 
@@ -905,7 +128,7 @@ export default PostForm;
 
 ----------------------------------------
 
-// src/app/posts/[username]/new/page.tsx:
+// src/app/posts/[userId]/new/page.tsx:
 
 'use client';
 
@@ -929,17 +152,17 @@ export default NewPostPage;
 
 ----------------------------------------
 
-// src/app/posts/[postId]/page.tsx:
+// src/app/posts/[userId]/[slug]/page.tsx:
 
+// src/app/posts/[userId]/[postId]/page.tsx
 'use client';
 
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { NextRouter } from 'next/router';
 
 const PostPage = () => {
-  const router: NextRouter = useRouter();
-  const { postId } = router.query;
+  const router = useRouter();
+  const { userId, postId } = router.query;
   const [post, setPost] = useState<any>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -958,12 +181,12 @@ const PostPage = () => {
       }
     };
 
-    if (postId) {
+    if (userId && postId) {
       fetchPost().catch(() => {
         setFetchError('Failed to fetch post');
       });
     }
-  }, [postId]);
+  }, [userId, postId]);
 
   if (fetchError) {
     return <div className="text-red-500">{fetchError}</div>;
@@ -1477,13 +700,13 @@ export default async function EditProfilePage() {
 
 ----------------------------------------
 
-// src/app/profile/[username]/page.tsx:
+// src/app/profile/[userId]/page.tsx:
 
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../database/users';
 import { getSessionByToken } from '../../../../database/sessions';
-import ProfilePageClient from '../../profile/ProfilePageClient';
+import ProfilePageClient from '../ProfilePageClient';
 import Link from 'next/link';
 
 export default async function ProfilePage({
@@ -1588,13 +811,45 @@ export default function RootLayout({
 // src/app/api/posts/user/[userId]/route.ts:
 
 // src/app/api/posts/user/[userId]/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPostsByUserId } from '../../../../../../database/posts';
 
-export async function GET({ params }: { params: any }) {
-  const userId = parseInt(params.userId, 10);
+interface CustomRequest extends NextRequest {
+  params: {
+    userId: string;
+  };
+}
+
+export async function GET(request: CustomRequest) {
+  const userId = parseInt(request.params.userId, 10);
   const posts = await getPostsByUserId(userId);
   return NextResponse.json(posts);
+}
+
+----------------------------------------
+
+// src/app/api/[userId]/[postId]/route.ts:
+
+// src/app/api/posts/[userId]/[postId]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getPostByUserAndId } from '../../../../../database/posts';
+
+interface CustomRequest extends NextRequest {
+  params: {
+    userId: string;
+    postId: string;
+  };
+}
+
+export async function GET(request: CustomRequest) {
+  const userId = parseInt(request.params.userId, 10);
+  const postId = parseInt(request.params.postId, 10);
+  const post = await getPostByUserAndId(userId, postId);
+  if (post) {
+    return NextResponse.json(post);
+  } else {
+    return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+  }
 }
 
 ----------------------------------------
@@ -1757,7 +1012,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       categoryId,
     );
 
-    return NextResponse.json(post, { status: 201 });
+    return NextResponse.json(
+      { ...post, userId: session.userId },
+      { status: 201 },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },

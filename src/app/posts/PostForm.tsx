@@ -1,4 +1,5 @@
 // src/app/posts/PostForm.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -12,7 +13,7 @@ const PostForm = () => {
 
   const handleSubmit = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
-    const response = await fetch('/api/posts', {
+    const response = await fetch('/api/posts/user/[userId]', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, content }),
@@ -20,9 +21,8 @@ const PostForm = () => {
 
     const data = await response.json();
     if (response.ok) {
-      const userId = data.userId;
-      const postId = data.id;
-      router.push(`/posts/${userId}/${postId}`);
+      String(data.id);
+      router.push(`/posts/${data.userId}/${data.slug}`);
     } else {
       setError('Error creando el post');
     }

@@ -13,9 +13,7 @@ const PostPage = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const response = await fetch(
-          `/api/posts/${String(userId)}/${String(postId)}`,
-        );
+        const response = await fetch(`/api/posts/${postId as string}`);
         if (response.ok) {
           const postData = await response.json();
           setPost(postData);

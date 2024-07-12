@@ -28,7 +28,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       categoryId,
     );
 
-    return NextResponse.json(post, { status: 201 });
+    return NextResponse.json(
+      { ...post, userId: session.userId },
+      { status: 201 },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
