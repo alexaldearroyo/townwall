@@ -14,6 +14,30 @@ export type Post = {
   slug: string;
 };
 
+export async function getPostById(postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      *
+    FROM
+      posts
+    WHERE
+      id = ${postId}
+  `;
+  return posts[0];
+}
+
 export async function getPostsByUserId(userId: number) {
   const posts = await sql<
     {
@@ -36,6 +60,31 @@ export async function getPostsByUserId(userId: number) {
       user_id = ${userId}
   `;
   return posts;
+}
+
+export async function getPostByUserAndId(userId: number, postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      *
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+      AND id = ${postId}
+  `;
+  return posts[0];
 }
 
 export async function createPost(
