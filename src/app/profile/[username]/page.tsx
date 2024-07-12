@@ -65,13 +65,6 @@ export default async function ProfilePage({
   return (
     <div>
       <ProfilePageClient user={userProfile} />
-      {session.userId === user.id && (
-        <div className="flex justify-center mt-4">
-          <Link href="/profile/edit" className="btn btn-primary">
-            Edit Profile
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

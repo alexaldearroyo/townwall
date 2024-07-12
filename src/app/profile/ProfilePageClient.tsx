@@ -139,12 +139,17 @@ export default function ProfilePageClient({
               </li>
             ))
           ) : (
-            <p>No Posts Yet</p>
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No Posts Yet
+            </p>
           )}
         </ul>
 
-        <Link href={{ pathname: '/posts/new' }}>
-          <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+        <Link href={{ pathname: `/posts/${user.username}/new` }}>
+          <button
+            // onClick={() => (window.location.href = `/posts/${user.username}/new`)}
+            className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
             Add new post
           </button>
         </Link>
