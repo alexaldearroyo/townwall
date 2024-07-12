@@ -1,19 +1,22 @@
-// src/app/posts/[userId]/[postId]/page.tsx
+// src/app/posts/[userId]/[slug]/page.tsx
+
 'use client';
 
-import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-const PostPage = () => {
-  const router = useRouter();
-  const { userId, postId } = router.query;
+export default function PostPage({
+  params,
+}: {
+  params: { userId: string; slug: string };
+}) {
   const [post, setPost] = useState<any>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const { userId, slug } = params;
 
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const response = await fetch(`/api/posts/${postId as string}`);
+        const response = await fetch(`/api/posts/${userId}/${slug}`);
         if (response.ok) {
           const postData = await response.json();
           setPost(postData);
@@ -25,12 +28,12 @@ const PostPage = () => {
       }
     };
 
-    if (userId && postId) {
+    if (userId && slug) {
       fetchPost().catch(() => {
         setFetchError('Failed to fetch post');
       });
     }
-  }, [userId, postId]);
+  }, [userId, slug]);
 
   if (fetchError) {
     return <div className="text-red-500">{fetchError}</div>;
@@ -54,6 +57,4 @@ const PostPage = () => {
       </div>
     </div>
   );
-};
-
-export default PostPage;
+}
