@@ -29,6 +29,109 @@ export const sql = connectOneTimeToDatabase();
 
 ----------------------------------------
 
+// database/posts.ts:
+
+// database/posts.ts
+
+import { sql } from './connect';
+
+export type Post = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId?: string | number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  slug: string;
+};
+
+export async function getPostsByUserId(userId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      *
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+  `;
+  return posts;
+}
+
+export async function createPost(
+  userId: number,
+  title: string,
+  content: string,
+  icon: string = '',
+  categoryId?: number,
+): Promise<Post> {
+  const slug = title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      posts (
+        user_id,
+        icon,
+        title,
+        content,
+        category_id,
+        slug
+      )
+    VALUES
+      (
+        ${userId},
+        ${icon || null},
+        ${title},
+        ${content},
+        ${categoryId ?? null},
+        ${slug}
+      )
+    RETURNING
+      *
+  `;
+
+  if (!post) {
+    throw new Error('Failed to create post');
+  }
+
+  const createdAt = post.createdAt ? new Date(post.createdAt) : new Date();
+  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
+
+  const result: Post = {
+    ...post,
+    createdAt,
+    updatedAt,
+  };
+
+  return result;
+}
+
+----------------------------------------
+
 // database/sessions.ts:
 
 import { sql } from './connect';
@@ -390,285 +493,6 @@ export async function updateUserProfile(
 
 ----------------------------------------
 
-// migrations/00000-createUsersTable.ts:
-
-// migrations/00000-createUsersTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users (
-      id serial PRIMARY KEY,
-      username varchar(255) NOT NULL,
-      email varchar(255),
-      password_hash varchar(255) NOT NULL,
-      full_name text,
-      description text,
-      interests text,
-      profile_links text,
-      user_image varchar(255),
-      location POINT,
-      birthdate date,
-      profession text,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_users_updated_at before
-    UPDATE ON users FOR each ROW
-    EXECUTE function update_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
-  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
-  await sql`DROP TABLE IF EXISTS users`;
-}
-
-----------------------------------------
-
-// migrations/00001-createSessionsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE sessions (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      token varchar(255) NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      expires_at timestamp
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE sessions`;
-}
-
-----------------------------------------
-
-// migrations/00002-createFollowsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE follows (
-      id serial PRIMARY KEY,
-      follower_id int NOT NULL,
-      followed_id int NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE follows`;
-}
-
-----------------------------------------
-
-// migrations/00003-createCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE comments (
-      id serial PRIMARY KEY,
-      content text NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_comments_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_comments_updated_at before
-    UPDATE ON comments FOR each ROW
-    EXECUTE procedure update_comments_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_comments_updated_at ON comments`;
-  await sql`DROP FUNCTION if EXISTS update_comments_updated_at_column`;
-  await sql`DROP TABLE comments`;
-}
-
-----------------------------------------
-
-// migrations/00004-createPostsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      icon varchar(1),
-      title varchar(255) NOT NULL,
-      content text NOT NULL,
-      category_id bigint,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_posts_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_posts_updated_at before
-    UPDATE ON posts FOR each ROW
-    EXECUTE procedure update_posts_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_posts_updated_at ON posts`;
-  await sql`DROP FUNCTION if EXISTS update_posts_updated_at_column`;
-  await sql`DROP TABLE posts`;
-}
-
-----------------------------------------
-
-// migrations/00005-createcategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE categories (
-      id serial PRIMARY KEY,
-      category_name varchar(255) NOT NULL,
-      description text
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE categories`;
-}
-
-----------------------------------------
-
-// migrations/00006-createPostsCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_categories (
-      id serial PRIMARY KEY,
-      post_id int NOT NULL,
-      category_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_categories`;
-}
-
-----------------------------------------
-
-// migrations/00007-createUsersCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users_categories (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL,
-      category_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE users_categories`;
-}
-
-----------------------------------------
-
-// migrations/00008-createProfilesCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE profiles_comments (
-      id serial PRIMARY KEY,
-      profile_id int NOT NULL,
-      comment_id int NOT NULL,
-      commenter_id int NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE profiles_comments`;
-}
-
-----------------------------------------
-
-// migrations/00009-createPostsCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_comments (
-      id serial PRIMARY KEY,
-      profile_id bigint NOT NULL,
-      comment_id bigint NOT NULL,
-      commenter_id bigint NOT NULL
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_comments`;
-}
-
-----------------------------------------
-
 // src/app/middleware.ts:
 
 import { NextResponse } from 'next/server';
@@ -715,18 +539,99 @@ export const config = {
 
 ----------------------------------------
 
+// src/app/posts/new.tsx:
+
+import PostForm from './PostForm';
+
+const NewPostPage = () => {
+  return (
+    <div>
+      <h1>Create New Post</h1>
+      <PostForm />
+    </div>
+  );
+};
+
+export default NewPostPage;
+
+----------------------------------------
+
+// src/app/posts/PostForm.tsx:
+
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+
+const PostForm = () => {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const router = useRouter();
+
+  const handleSubmit = async (event: { preventDefault: () => void }) => {
+    event.preventDefault();
+    const response = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      await router.push(`/posts/${data.id}`); // Assuming that the response includes the ID of the created post
+    } else {
+      console.error('Error creando el post', data);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Título"
+        required
+      />
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Contenido"
+        required
+      />
+      <button>Add Post</button>
+    </form>
+  );
+};
+
+export default PostForm;
+
+----------------------------------------
+
 // src/app/profile/ProfilePageClient.tsx:
 
 // profilepageclient new
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { getPostsByUserId } from '../../../database/posts';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
 
 export default function ProfilePageClient({
   user,
 }: {
   user: {
+    id: number;
     username: string;
     fullName?: string;
     description?: string;
@@ -739,6 +644,18 @@ export default function ProfilePageClient({
   };
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (user && user.id) {
+        const userPosts = await getPostsByUserId(user.id);
+        setPosts(userPosts);
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
 
   async function handleLogout() {
     const response = await fetch('/api/logout', {
@@ -820,6 +737,29 @@ export default function ProfilePageClient({
           </p>
         )}
         {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <li key={post.id}>
+                <Link ref={`/posts/${post.slug}`} href={'/'}>
+                  <a>{post.title}</a>
+                </Link>
+              </li>
+            ))
+          ) : (
+            <p>No hay posts aún.</p>
+          )}
+        </ul>
+
+        <Link href={{ pathname: '/posts/new' }}>
+          <button className="button">Crear nuevo post</button>
+        </Link>
+        <button
+          onClick={() => (window.location.href = `/profile/edit`)}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Edit Profile
+        </button>
         <button
           onClick={handleLogout}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -831,12 +771,6 @@ export default function ProfilePageClient({
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
           Delete Account
-        </button>
-        <button
-          onClick={() => (window.location.href = `/profile/edit`)}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
         </button>
       </div>
     </div>
@@ -1372,6 +1306,49 @@ export default function RegisterPage() {
       <RegisterForm />
     </div>
   );
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/posts/route.ts:
+
+// src/app/(auth)/api/posts/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost } from '../../../../../database/posts';
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
+    }
+
+    const { title, content, icon, categoryId } = await request.json();
+    const post = await createPost(
+      session.userId,
+      title,
+      content,
+      icon,
+      categoryId,
+    );
+
+    return NextResponse.json(post, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------

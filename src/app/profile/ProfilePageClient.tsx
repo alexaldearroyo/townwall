@@ -2,12 +2,27 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { getPostsByUserId } from '../../../database/posts';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
 
 export default function ProfilePageClient({
   user,
 }: {
   user: {
+    id: number;
     username: string;
     fullName?: string;
     description?: string;
@@ -20,6 +35,19 @@ export default function ProfilePageClient({
   };
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (user && user.id) {
+        const response = await fetch(`/api/posts/user/${user.id}`);
+        const userPosts = await response.json();
+        setPosts(userPosts);
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
 
   async function handleLogout() {
     const response = await fetch('/api/logout', {
@@ -101,6 +129,29 @@ export default function ProfilePageClient({
           </p>
         )}
         {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <li key={post.id}>
+                <Link ref={`/posts/${post.slug}`} href={'/'}>
+                  <a>{post.title}</a>
+                </Link>
+              </li>
+            ))
+          ) : (
+            <p>No hay posts aún.</p>
+          )}
+        </ul>
+
+        <Link href={{ pathname: '/posts/new' }}>
+          <button className="button">Crear nuevo post</button>
+        </Link>
+        <button
+          onClick={() => (window.location.href = `/profile/edit`)}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Edit Profile
+        </button>
         <button
           onClick={handleLogout}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -112,12 +163,6 @@ export default function ProfilePageClient({
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
         >
           Delete Account
-        </button>
-        <button
-          onClick={() => (window.location.href = `/profile/edit`)}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
         </button>
       </div>
     </div>
