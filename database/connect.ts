@@ -1,4 +1,3 @@
-// import 'server-only';
 import { unstable_noStore as noStore } from 'next/cache';
 import postgres, { Sql } from 'postgres';
 import postgresConfig from '../ley.config.js';
