@@ -4,8 +4,8 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE follows (
       id serial PRIMARY KEY,
-      follower_id int NOT NULL,
-      followed_id int NOT NULL,
+      follower_id int NOT NULL REFERENCES users (id),
+      followed_id int NOT NULL REFERENCES users (id),
       created_at timestamp DEFAULT CURRENT_TIMESTAMP
     )
   `;

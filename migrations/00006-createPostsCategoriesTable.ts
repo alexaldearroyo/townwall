@@ -4,8 +4,8 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE posts_categories (
       id serial PRIMARY KEY,
-      post_id int NOT NULL,
-      category_id int NOT NULL
+      post_id int NOT NULL REFERENCES posts (id),
+      category_id int NOT NULL REFERENCES categories (id)
     )
   `;
 }

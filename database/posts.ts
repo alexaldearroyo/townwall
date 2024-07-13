@@ -1,5 +1,3 @@
-// database/posts.ts
-
 import { sql } from './connect';
 
 export type Post = {
@@ -10,7 +8,7 @@ export type Post = {
   content: string;
   categoryId?: string | number | null;
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt: Date | null;
   slug: string;
 };
 
@@ -29,7 +27,15 @@ export async function getPostById(postId: number) {
     }[]
   >`
     SELECT
-      *
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
     FROM
       posts
     WHERE
@@ -53,7 +59,15 @@ export async function getPostsByUserId(userId: number) {
     }[]
   >`
     SELECT
-      *
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
     FROM
       posts
     WHERE
@@ -77,7 +91,15 @@ export async function getPostByUserAndId(userId: number, postId: number) {
     }[]
   >`
     SELECT
-      *
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
     FROM
       posts
     WHERE
@@ -127,7 +149,15 @@ export async function createPost(
         ${slug}
       )
     RETURNING
-      *
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
   `;
 
   if (!post) {

@@ -5,13 +5,13 @@ export type Session = {
   id: number;
   userId: number;
   token: string;
-  createdAt: Date | null;
-  expiresAt: Date | null;
+  createdAt: Date;
+  expiresAt: Date;
 };
 
-// Function to create a session
 export async function createSession(userId: number): Promise<Session> {
   const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
   const [session] = await sql<
     {
@@ -23,11 +23,12 @@ export async function createSession(userId: number): Promise<Session> {
     }[]
   >`
     INSERT INTO
-      sessions (user_id, token)
+      sessions (user_id, token, expires_at)
     VALUES
       (
         ${userId},
-        ${token}
+        ${token},
+        ${expiresAt}
       )
     RETURNING
       id,
@@ -45,16 +46,23 @@ export async function createSession(userId: number): Promise<Session> {
     id: session.id,
     userId: session.userId,
     token: session.token,
-    createdAt: session.createdAt,
-    expiresAt: session.expiresAt,
+    createdAt: session.createdAt!,
+    expiresAt: session.expiresAt || new Date(),
   };
 }
 
-// Function to get a session by token
 export async function getSessionByToken(
   token: string,
 ): Promise<Session | null> {
-  const [session] = await sql<Session[]>`
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date | null;
+      expiresAt: Date | null;
+    }[]
+  >`
     SELECT
       id,
       user_id AS "userId",
@@ -67,10 +75,17 @@ export async function getSessionByToken(
       token = ${token}
   `;
 
-  return session || null;
+  return session
+    ? {
+        id: session.id,
+        userId: session.userId,
+        token: session.token,
+        createdAt: session.createdAt || new Date(),
+        expiresAt: session.expiresAt || new Date(),
+      }
+    : null;
 }
 
-// Function to delete a session by token
 export async function deleteSessionByToken(token: string): Promise<void> {
   await sql`
     DELETE FROM sessions

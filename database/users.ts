@@ -23,98 +23,117 @@ export type User = {
   id: number;
   username: string;
   passwordHash: string;
-  userImage?: string | null;
-  email?: string | null;
+  userImage: string | null;
+  email: string;
   fullName?: string | null;
   description?: string | null;
   interests?: string | null;
   profileLinks?: string | null;
-  location?: any;
+  location?: { x: number; y: number } | null | unknown;
   birthdate?: Date | null;
   profession?: string | null;
   createdAt?: Date | null;
   updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
 };
 
 export type UserProfile = {
   id: number;
   username: string;
-  email: string | null;
+  email: string;
   fullName: string | null;
   description: string | null;
   interests: string | null;
   profileLinks: string | null;
   userImage: string | null;
-  location: any;
+  location: { x: number; y: number } | null;
   birthdate: Date | null;
   profession: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  profileId: number;
+  slug: string;
 };
 
 // Function to create a user
 export async function createUser(
   username: string,
   password: string,
+  email: string,
+  profileId: number,
+  slug: string,
 ): Promise<User> {
   const passwordHash = await bcrypt.hash(password, 10);
   const randomEmoji =
     animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
 
-  const users = await new Promise<any>((resolve, reject) => {
-    sql<
-      {
-        id: number;
-        username: string;
-        passwordHash: string;
-        userImage: string | null;
-      }[]
-    >`
-      INSERT INTO
-        users (
-          username,
-          password_hash,
-          user_image
-        )
-      VALUES
-        (
-          ${username},
-          ${passwordHash},
-          ${randomEmoji}
-        )
-      RETURNING
-        id,
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: any;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
         username,
-        password_hash AS "passwordHash",
-        user_image AS "userImage"
-    `
-      .then(resolve)
-      .catch(reject);
-  });
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug}
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
 
   if (users.length === 0) {
     throw new Error('User creation failed');
   }
 
-  const user = users[0];
-  return {
-    id: user.id,
-    username: user.username,
-    passwordHash: user.passwordHash,
-    userImage: user.userImage,
-    email: user.email,
-    fullName: user.fullName,
-    description: user.description,
-    interests: user.interests,
-    profileLinks: user.profileLinks,
-    location: user.location,
-    birthdate: user.birthdate,
-    profession: user.profession,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
+  const user = users[0] as User;
+  return user;
 }
 
+// Function to get a user by their username
 // Function to get a user by their username
 export async function getUserByUsername(
   username: string,
@@ -124,17 +143,19 @@ export async function getUserByUsername(
       id: number;
       username: string;
       passwordHash: string;
-      email: string | null;
+      email: string;
       fullName: string | null;
       description: string | null;
       interests: string | null;
       profileLinks: string | null;
-      userImage: string | null;
+      userImage: string;
       location: unknown | null;
       birthdate: Date | null;
       profession: string | null;
       createdAt: Date | null;
       updatedAt: Date | null;
+      profileId: number;
+      slug: string;
     }[]
   >`
     SELECT
@@ -147,45 +168,93 @@ export async function getUserByUsername(
       interests,
       profile_links AS "profileLinks",
       user_image AS "userImage",
-      location,
+      st_astext (location) AS "location",
       birthdate,
       profession,
       created_at AS "createdAt",
-      updated_at AS "updatedAt"
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
     FROM
       users
     WHERE
       username = ${username}
   `;
 
-  return users[0] || undefined;
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
 }
 
-// Función para obtener un usuario por su ID
-export async function getUserById(id: number): Promise<User | undefined> {
+// Function to get a user by their ID
+export async function getUserById(id: number): Promise<User> {
   const users = await sql<
     {
       id: number;
       username: string;
       passwordHash: string;
-      userImage: string | null;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
     }[]
   >`
     SELECT
       id,
       username,
       password_hash AS "passwordHash",
-      user_image AS "userImage"
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
     FROM
       users
     WHERE
       id = ${id}
   `;
 
-  return users[0] || undefined;
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
 }
 
-// Función para eliminar un usuario por su ID
+// Function to delete a user by their ID
 export async function deleteUserById(id: number): Promise<void> {
   await sql`
     DELETE FROM users
@@ -194,6 +263,7 @@ export async function deleteUserById(id: number): Promise<void> {
   `;
 }
 
+// Function to update user profile
 export async function updateUserProfile(
   userId: number,
   profileData: Partial<UserProfile>,
@@ -202,12 +272,27 @@ export async function updateUserProfile(
     ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
     : null;
   const locationValue = profileData.location
-    ? `(${profileData.location
-        .split(',')
-        .map((c: string) => parseFloat(c).toFixed(2))
-        .join(',')})`
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
     : null;
-  const users = await sql<UserProfile[]>`
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
     UPDATE users
     SET
       full_name = coalesce(
@@ -231,7 +316,7 @@ export async function updateUserProfile(
         user_image
       ),
       location = coalesce(
-        ${locationValue}::POINT,
+        ${locationValue}::geometry,
         location
       ),
       birthdate = coalesce(
@@ -254,11 +339,13 @@ export async function updateUserProfile(
       interests,
       profile_links AS "profileLinks",
       user_image AS "userImage",
-      location,
+      st_astext (location) AS "location",
       birthdate,
       profession,
       created_at AS "createdAt",
-      updated_at AS "updatedAt"
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
   `;
 
   const updatedUser = users[0];
@@ -267,5 +354,24 @@ export async function updateUserProfile(
     throw new Error('Profile update failed');
   }
 
-  return updatedUser;
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
 }

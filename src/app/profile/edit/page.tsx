@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserById, getUserByUsername } from '../../../../database/users';
+import { getUserById } from '../../../../database/users';
 import { getSessionByToken } from '../../../../database/sessions';
 import EditProfileForm from './EditProfileForm';
 
@@ -29,14 +29,6 @@ export default async function EditProfilePage() {
   }
 
   const user = await getUserById(session.userId);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
 
   const userProfile = {
     username: user.username,

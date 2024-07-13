@@ -1,5 +1,3 @@
-// src/app/(auth)/api/register/route.ts
-
 import { NextResponse } from 'next/server';
 import { createUser, getUserByUsername } from '../../../../../database/users';
 import { createSession } from '../../../../../database/sessions';
@@ -24,12 +22,18 @@ export async function POST(
 
     if (!result.success) {
       return NextResponse.json(
-        { errors: result.error.issues },
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
         { status: 400 },
       );
     }
 
-    const existingUser = await getUserByUsername(result.data.username);
+    const { username, password } = result.data;
+
+    const existingUser = await getUserByUsername(username);
 
     if (existingUser) {
       return NextResponse.json(
@@ -38,7 +42,16 @@ export async function POST(
       );
     }
 
-    const user = await createUser(result.data.username, result.data.password);
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+
+    const user = await createUser(
+      username,
+      password,
+      username + '@example.com',
+      profileId,
+      slug,
+    );
 
     // Create a session for the new user
     const session = await createSession(user.id);

@@ -4,14 +4,14 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE posts (
       id serial PRIMARY KEY,
-      user_id int NOT NULL,
+      user_id int NOT NULL REFERENCES users (id),
       icon varchar(1),
       title varchar(255) NOT NULL,
       content text NOT NULL,
       category_id bigint,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL
+      slug varchar(255) NOT NULL UNIQUE
     )
   `;
 

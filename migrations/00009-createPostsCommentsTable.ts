@@ -4,9 +4,9 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE posts_comments (
       id serial PRIMARY KEY,
-      profile_id bigint NOT NULL,
-      comment_id bigint NOT NULL,
-      commenter_id bigint NOT NULL
+      profile_id bigint NOT NULL REFERENCES posts (id),
+      comment_id bigint NOT NULL REFERENCES comments (id),
+      commenter_id bigint NOT NULL REFERENCES users (id)
     )
   `;
 }
