@@ -18,10 +18,6 @@ export async function middleware(request: NextRequest) {
 
   const user = await getUserById(session.userId);
 
-  if (!user) {
-    return NextResponse.redirect('/login');
-  }
-
   const pathname = request.nextUrl.pathname;
 
   // Check if the user is trying to access the profile of another user

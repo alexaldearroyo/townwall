@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../database/sessions';
-import {
-  createPost,
-  getPostsByUserId,
-  getPostByUserAndId,
-} from '../../../../../database/posts';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
 
 // Crear Post
 export async function POST(request: NextRequest): Promise<NextResponse> {

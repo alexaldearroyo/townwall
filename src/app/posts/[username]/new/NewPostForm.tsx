@@ -48,7 +48,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
 
       if (response.ok) {
         const post: PostType = await response.json();
-        router.push(`/posts/${post.slug}`);
+        router.push(`/posts/${user.username}/${post.slug}`);
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create post');

@@ -33,10 +33,10 @@ export default async function NewPostPage({
 
   const user = await getUserByUsername(username);
 
-  if (!user || session.userId !== user.id) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">Access denied</p>
+        <p className="text-xl text-red-500">User not found</p>
       </div>
     );
   }
