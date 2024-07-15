@@ -174,3 +174,37 @@ export async function createPost(
 
   return result;
 }
+
+export async function getPostByUserAndSlug(username: string, slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.category_id AS "categoryId",
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug
+    FROM
+      posts p
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      u.username = ${username}
+      AND p.slug = ${slug}
+  `;
+  return posts[0];
+}
