@@ -21,7 +21,7 @@ export async function getPostById(postId: number) {
       title: string;
       content: string;
       categoryId: string | null;
-      createdAt: Date | null;
+      createdAt: Date;
       updatedAt: Date | null;
       slug: string;
     }[]
@@ -53,7 +53,7 @@ export async function getPostsByUserId(userId: number) {
       title: string;
       content: string;
       categoryId: string | null;
-      createdAt: Date | null;
+      createdAt: Date;
       updatedAt: Date | null;
       slug: string;
     }[]
@@ -76,7 +76,7 @@ export async function getPostsByUserId(userId: number) {
   return posts;
 }
 
-export async function getPostByUserAndId(userId: number, postId: number) {
+export async function getPostByUserAndId(slug: string) {
   const posts = await sql<
     {
       id: number;
@@ -85,7 +85,7 @@ export async function getPostByUserAndId(userId: number, postId: number) {
       title: string;
       content: string;
       categoryId: string | null;
-      createdAt: Date | null;
+      createdAt: Date;
       updatedAt: Date | null;
       slug: string;
     }[]
@@ -103,8 +103,7 @@ export async function getPostByUserAndId(userId: number, postId: number) {
     FROM
       posts
     WHERE
-      user_id = ${userId}
-      AND id = ${postId}
+      slug = ${slug}
   `;
   return posts[0];
 }
@@ -113,10 +112,10 @@ export async function createPost(
   userId: number,
   title: string,
   content: string,
+  slug: string,
   icon: string = '',
   categoryId?: number,
 ): Promise<Post> {
-  const slug = title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
   const [post] = await sql<
     {
       id: number;
@@ -125,7 +124,7 @@ export async function createPost(
       title: string;
       content: string;
       categoryId: string | null;
-      createdAt: Date | null;
+      createdAt: Date;
       updatedAt: Date | null;
       slug: string;
     }[]
@@ -164,7 +163,7 @@ export async function createPost(
     throw new Error('Failed to create post');
   }
 
-  const createdAt = post.createdAt ? new Date(post.createdAt) : new Date();
+  const createdAt = new Date(post.createdAt);
   const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
 
   const result: Post = {

@@ -1,32 +1,62 @@
-// src/app/posts/PostForm.tsx
-
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const PostForm = () => {
+type UserType = {
+  id: number;
+  username: string;
+};
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+function generateSlug(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function NewPostForm({ user }: { user: UserType }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleSubmit = async (event: { preventDefault: () => void }) => {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch('/api/posts/user/[userId]', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content }),
-    });
 
-    const data = await response.json();
-    if (response.ok) {
-      String(data.id);
-      router.push(`/posts/${data.userId}/${data.slug}`);
-    } else {
-      setError('Error creando el post');
+    const slug = generateSlug(title);
+
+    console.log('Form data:', { userId: user.id, title, content, slug });
+
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, title, content, slug }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const post: PostType = await response.json();
+        router.push(`/posts/${post.slug}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create post');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
     }
-  };
+  }
 
   return (
     <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg dark:bg-gray-800">
@@ -74,6 +104,4 @@ const PostForm = () => {
       </form>
     </div>
   );
-};
-
-export default PostForm;
+}
