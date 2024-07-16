@@ -1,60 +1,786 @@
-// src/app/posts/PostClient.tsx:
+// database/connect.ts:
 
-'use client';
+import { unstable_noStore as noStore } from 'next/cache';
+import postgres, { Sql } from 'postgres';
+import postgresConfig from '../ley.config.js';
+import { setEnvironmentVariables } from '../util/config.js';
 
-import { useEffect, useState } from 'react';
+setEnvironmentVariables();
 
-export default function PostClient({
-  userId,
-  slug,
-}: {
-  userId: string;
-  slug: string;
-}) {
-  const [post, setPost] = useState<any>(null);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+declare module globalThis {
+  let postgresSqlClient: Sql;
+}
 
-  useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const response = await fetch(`/api/posts/${userId}/${slug}`);
-        if (response.ok) {
-          const postData = await response.json();
-          setPost(postData);
-        } else {
-          setFetchError('Post not found');
-        }
-      } catch {
-        setFetchError('Failed to fetch post');
-      }
-    };
-
-    if (userId && slug) {
-      fetchPost().catch(() => {
-        setFetchError('Failed to fetch post');
-      });
-    }
-  }, [userId, slug]);
-
-  if (fetchError) {
-    return <div className="text-red-500">{fetchError}</div>;
+function connectOneTimeToDatabase() {
+  if (!('postgresSqlClient' in globalThis)) {
+    globalThis.postgresSqlClient = postgres(postgresConfig);
   }
 
+  return ((
+    ...sqlParameters: Parameters<typeof globalThis.postgresSqlClient>
+  ) => {
+    noStore();
+    return globalThis.postgresSqlClient(...sqlParameters);
+  }) as typeof globalThis.postgresSqlClient;
+}
+
+export const sql = connectOneTimeToDatabase();
+
+----------------------------------------
+
+// database/posts.ts:
+
+import { sql } from './connect';
+
+export type Post = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId?: string | number | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export async function getPostById(postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      id = ${postId}
+  `;
+  return posts[0];
+}
+
+export async function getPostsByUserId(userId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+  `;
+  return posts;
+}
+
+export async function getPostByUserAndId(slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      slug = ${slug}
+  `;
+  return posts[0];
+}
+
+export async function createPost(
+  userId: number,
+  title: string,
+  content: string,
+  slug: string,
+  icon: string = '',
+  categoryId?: number,
+): Promise<Post> {
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      posts (
+        user_id,
+        icon,
+        title,
+        content,
+        category_id,
+        slug
+      )
+    VALUES
+      (
+        ${userId},
+        ${icon || null},
+        ${title},
+        ${content},
+        ${categoryId ?? null},
+        ${slug}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+  `;
+
+  if (!post) {
+    throw new Error('Failed to create post');
+  }
+
+  const createdAt = new Date(post.createdAt);
+  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
+
+  const result: Post = {
+    ...post,
+    createdAt,
+    updatedAt,
+  };
+
+  return result;
+}
+
+export async function getPostByUserAndSlug(username: string, slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.category_id AS "categoryId",
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug
+    FROM
+      posts p
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      u.username = ${username}
+      AND p.slug = ${slug}
+  `;
+  return posts[0];
+}
+
+----------------------------------------
+
+// database/sessions.ts:
+
+import { sql } from './connect';
+import crypto from 'node:crypto';
+
+export type Session = {
+  id: number;
+  userId: number;
+  token: string;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+export async function createSession(userId: number): Promise<Session> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date | null;
+      expiresAt: Date | null;
+    }[]
+  >`
+    INSERT INTO
+      sessions (user_id, token, expires_at)
+    VALUES
+      (
+        ${userId},
+        ${token},
+        ${expiresAt}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+  `;
+
+  if (!session) {
+    throw new Error('Session creation failed');
+  }
+
+  return {
+    id: session.id,
+    userId: session.userId,
+    token: session.token,
+    createdAt: session.createdAt!,
+    expiresAt: session.expiresAt || new Date(),
+  };
+}
+
+export async function getSessionByToken(
+  token: string,
+): Promise<Session | null> {
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date | null;
+      expiresAt: Date | null;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+    FROM
+      sessions
+    WHERE
+      token = ${token}
+  `;
+
+  return session
+    ? {
+        id: session.id,
+        userId: session.userId,
+        token: session.token,
+        createdAt: session.createdAt || new Date(),
+        expiresAt: session.expiresAt || new Date(),
+      }
+    : null;
+}
+
+export async function deleteSessionByToken(token: string): Promise<void> {
+  await sql`
+    DELETE FROM sessions
+    WHERE
+      token = ${token}
+  `;
+}
+
+----------------------------------------
+
+// database/users.ts:
+
+import { sql } from './connect';
+import bcrypt from 'bcrypt';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
+export type User = {
+  id: number;
+  username: string;
+  passwordHash: string;
+  userImage: string | null;
+  email: string;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  location?: { x: number; y: number } | null | unknown;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  description: string | null;
+  interests: string | null;
+  profileLinks: string | null;
+  userImage: string | null;
+  location: { x: number; y: number } | null;
+  birthdate: Date | null;
+  profession: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+// Function to create a user
+export async function createUser(
+  username: string,
+  password: string,
+  email: string,
+  profileId: number,
+  slug: string,
+): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: any;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
+        username,
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug}
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      location,
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
+
+  const user = users[0] as User;
+  return user;
+}
+
+// Function to get a user by their username
+// Function to get a user by their username
+export async function getUserByUsername(
+  username: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${username}
+  `;
+
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}
+
+// Function to get a user by their ID
+export async function getUserById(id: number): Promise<User> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      id = ${id}
+  `;
+
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
+}
+
+// Function to delete a user by their ID
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
+}
+
+// Function to update user profile
+export async function updateUserProfile(
+  userId: number,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile> {
+  const birthdateValue = profileData.birthdate
+    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
+    : null;
+  const locationValue = profileData.location
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
+    : null;
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    UPDATE users
+    SET
+      full_name = coalesce(
+        ${profileData.fullName ?? 'null'},
+        full_name
+      ),
+      description = coalesce(
+        ${profileData.description ?? 'null'},
+        description
+      ),
+      interests = coalesce(
+        ${profileData.interests ?? 'null'},
+        interests
+      ),
+      profile_links = coalesce(
+        ${profileData.profileLinks ?? 'null'},
+        profile_links
+      ),
+      user_image = coalesce(
+        ${profileData.userImage ?? 'null'},
+        user_image
+      ),
+      location = coalesce(
+        ${locationValue}::geometry,
+        location
+      ),
+      birthdate = coalesce(
+        ${birthdateValue}::date,
+        birthdate
+      ),
+      profession = coalesce(
+        ${profileData.profession ?? 'null'},
+        profession
+      ),
+      updated_at = now()
+    WHERE
+      id = ${userId}
+    RETURNING
+      id,
+      username,
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  const updatedUser = users[0];
+
+  if (!updatedUser) {
+    throw new Error('Profile update failed');
+  }
+
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
+}
+
+----------------------------------------
+
+// src/app/middleware.ts:
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { getSessionByToken } from '../../database/sessions';
+import { getUserById } from '../../database/users';
+
+export async function middleware(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.redirect('/login');
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.redirect('/login');
+  }
+
+  const user = await getUserById(session.userId);
+
+  const pathname = request.nextUrl.pathname;
+
+  // Check if the user is trying to access the profile of another user
+  const profileMatch = pathname.match(/^\/profile\/([^\/]+)$/);
+  if (profileMatch) {
+    const userId = profileMatch[1];
+    if (parseInt(userId ?? '') !== user.id) {
+      return NextResponse.redirect(`/profile/${user.id}`);
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/profile/:path*'], // Protected routes
+};
+
+----------------------------------------
+
+// src/app/posts/PostClient.tsx:
+
+import React from 'react';
+
+export default function PostClient({ post }: { post: any }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        {post ? (
-          <>
-            <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-              {post.title}
-            </h1>
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              {post.content}
-            </p>
-          </>
-        ) : (
-          <p>Loading...</p>
-        )}
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          {post.title}
+        </h1>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {post.content}
+        </p>
       </div>
     </div>
   );
@@ -233,6 +959,7 @@ export default async function NewPostPage({
 import { cookies } from 'next/headers';
 import { getPostByUserAndSlug } from '../../../../../database/posts';
 import { getSessionByToken } from '../../../../../database/sessions';
+import PostClient from '../../PostClient';
 import React from 'react';
 
 export default async function PostPage({
@@ -272,17 +999,1381 @@ export default async function PostPage({
     );
   }
 
+  return <PostClient post={post} />;
+}
+
+----------------------------------------
+
+// src/app/profile/ProfilePageClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { getPostsByUserId } from '../../../database/posts';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export default function ProfilePageClient({
+  user,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: string;
+    birthdate?: string;
+    profession?: string;
+  };
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      if (user && user.id) {
+        const response = await fetch(`/api/posts?userId=${user.id}`);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
+
+  async function handleLogout() {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/login'; // Redirect to login page after logout
+    } else {
+      setError('Failed to log out');
+    }
+  }
+
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action is irreversible.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/'; // Redirect to home page after account deletion
+    } else {
+      const data = await response.json();
+      setError(
+        data.errors ? data.errors[0].message : 'Failed to delete account',
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          {post.title}
+          Welcome, {user.username}
         </h1>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {post.content}
-        </p>
+        <div className="text-center mx-auto">
+          <span className="text-9xl">{user.userImage}</span>
+        </div>
+
+        {!!user.fullName && user.fullName.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Full Name: {user.fullName}
+          </p>
+        )}
+        {!!user.description && user.description.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Description: {user.description}
+          </p>
+        )}
+        {!!user.interests && user.interests.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Interests: {user.interests}
+          </p>
+        )}
+        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Links: {user.profileLinks}
+          </p>
+        )}
+        {!!user.location && user.location.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Location: {user.location}
+          </p>
+        )}
+        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Birthdate: {user.birthdate}
+          </p>
+        )}
+        {!!user.profession && user.profession.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Profession: {user.profession}
+          </p>
+        )}
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <li key={post.id}>
+                <Link href={`/posts/${user.username}/${post.slug}`}>
+                  <a>{post.title}</a>
+                </Link>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No Posts Yet
+            </p>
+          )}
+        </ul>
+
+        <Link href={{ pathname: `/posts/${user.username}/new` }}>
+          <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            Add new post
+          </button>
+        </Link>
+        <button
+          onClick={() => (window.location.href = `/profile/edit`)}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Edit Profile
+        </button>
+        <button
+          onClick={handleLogout}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Sign Out
+        </button>
+        <button
+          onClick={handleDeleteAccount}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Delete Account
+        </button>
       </div>
     </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/edit/EditProfileForm.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+  }, [user]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        router.push(`/profile/${formData.username}`); // Redirect using the username
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const { name, value } = event.target;
+    setFormData((prevData: any) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Edit Profile
+        </h1>
+        <div className="p-4 mb-4 bg-gray-200 dark:bg-gray-700 rounded-md">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+            Current User Data
+          </h2>
+          <p>
+            <strong>Username:</strong> {formData.username}
+          </p>
+          <p>
+            <strong>Full Name:</strong> {formData.fullName || 'N/A'}
+          </p>
+          <p>
+            <strong>Description:</strong> {formData.description || 'N/A'}
+          </p>
+          <p>
+            <strong>Interests:</strong> {formData.interests || 'N/A'}
+          </p>
+          <p>
+            <strong>Profile Links:</strong> {formData.profileLinks || 'N/A'}
+          </p>
+          <p>
+            <strong>Picture URL:</strong> {formData.userImage || 'N/A'}
+          </p>
+          <p>
+            <strong>Location:</strong> {formData.location || 'N/A'}
+          </p>
+          <p>
+            <strong>Birthdate:</strong> {formData.birthdate || 'N/A'}
+          </p>
+          <p>
+            <strong>Profession:</strong> {formData.profession || 'N/A'}
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              disabled // Disable editing of username
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-gray-100 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="fullName"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Full Name
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="interests"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Interests
+            </label>
+            <input
+              id="interests"
+              name="interests"
+              value={formData.interests}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profileLinks"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Personal Links
+            </label>
+            <input
+              id="profileLinks"
+              name="profileLinks"
+              value={formData.profileLinks}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="userImage"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Picture URL
+            </label>
+            <input
+              id="userImage"
+              name="userImage"
+              value={formData.userImage}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="location"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Location
+            </label>
+            <input
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="birthdate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Birth Date
+            </label>
+            <input
+              id="birthdate"
+              name="birthdate"
+              type="date"
+              value={formData.birthdate}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profession"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Profession
+            </label>
+            <input
+              id="profession"
+              name="profession"
+              value={formData.profession}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/edit/page.tsx:
+
+// src/app/profile/edit/page.tsx
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserById } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import EditProfileForm from './EditProfileForm';
+
+export default async function EditProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  const userProfile = {
+    username: user.username,
+    fullName: user.fullName || '',
+    description: user.description || '',
+    interests: user.interests || '',
+    profileLinks: user.profileLinks || '',
+    userImage: user.userImage || '',
+    location: user.location || '',
+    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
+    profession: user.profession || '',
+  };
+
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <EditProfileForm user={userProfile} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import ProfilePageClient from '../ProfilePageClient';
+import Link from 'next/link';
+
+export default async function ProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  if (session.userId !== user.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Access denied</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <ProfilePageClient user={userProfile} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/layout.tsx:
+
+// src/app/layout.tsx
+
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Header from '../components/Header';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Townwall',
+  description: 'Connect with people locally',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Header />
+        <main className="main-content">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+----------------------------------------
+
+// src/app/testpage/page.tsx:
+
+import React from 'react';
+
+const TestPage = () => {
+  return <div>Test Page</div>;
+};
+
+export default TestPage;
+
+----------------------------------------
+
+// src/app/(auth)/register/RegisterForm.tsx:
+
+// src/app/(auth)/register/RegisterForm.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(data ? data.errors[0].message : 'Invalid username or password');
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign Up
+        </h1>
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/page.tsx:
+
+// src/app/(auth)/register/page.tsx
+
+'use client';
+
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <RegisterForm />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/posts/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
+
+// Crear Post
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
+    }
+
+    const { title, content, slug, icon, categoryId } = await request.json();
+
+    if (!title || !content || !slug) {
+      return NextResponse.json(
+        { error: 'Title, content, and slug are required' },
+        { status: 400 },
+      );
+    }
+
+    const post = await createPost(
+      session.userId,
+      title,
+      content,
+      slug,
+      icon,
+      categoryId,
+    );
+
+    return NextResponse.json(
+      { ...post, userId: session.userId },
+      { status: 201 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+// Obtener Posts por Usuario
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(parseInt(userId, 10));
+    return NextResponse.json(posts);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/delete/route.ts:
+
+// src/app/(auth)/api/delete/route.ts
+
+import { NextResponse } from 'next/server';
+import { getUserById, deleteUserById } from '../../../../../database/users';
+import {
+  getSessionByToken,
+  deleteSessionByToken,
+} from '../../../../../database/sessions';
+
+export async function POST(request: Request) {
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.json(
+      { errors: [{ message: 'Invalid session token' }] },
+      { status: 401 },
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return NextResponse.json(
+      { errors: [{ message: 'User not found' }] },
+      { status: 404 },
+    );
+  }
+
+  await deleteUserById(user.id);
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'User deleted successfully' });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/logout/route.ts:
+
+// src/app/(auth)/api/logout/route.ts
+import { deleteSessionByToken } from '../../../../../database/sessions';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'Logged out successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/register/route.ts:
+
+import { NextResponse } from 'next/server';
+import { createUser, getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const { username, password } = result.data;
+
+    const existingUser = await getUserByUsername(username);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+
+    const user = await createUser(
+      username,
+      password,
+      username + '@example.com',
+      profileId,
+      slug,
+    );
+
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/profile/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { z } from 'zod';
+import { NextRequest } from 'next/server';
+
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  description: z.string().optional(),
+  interests: z.string().optional(),
+  profileLinks: z.string().optional(),
+  userImage: z.string().optional(),
+  location: z.string().optional(),
+  birthdate: z.string().optional(),
+  profession: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const result = profileSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const updatedUser = await updateUserProfile(
+      session.userId,
+      result.data as Partial<UserProfile>,
+    );
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+    if (!user) {
+      return NextResponse.json(
+        { errors: [{ message: 'User not found' }] },
+        { status: 404 },
+      );
+    }
+
+    console.log(user);
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/login/route.ts:
+
+import { NextResponse } from 'next/server';
+import { getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
+
+const loginSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<LoginResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    console.log('Received login request:', body);
+
+    const result = loginSchema.safeParse(body);
+
+    if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsername(result.data.username);
+
+    if (!user) {
+      console.log('User not found:', result.data.username);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    // Add a log to verify the result of bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
+
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.username);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
+    const response = NextResponse.json({ user }, { status: 200 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/LoginForm.tsx:
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LoginForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    console.log('Attempting login with:', { username, password });
+
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      console.log('Login successful:', data);
+      router.push(`/profile/${username}`); // Redirect to profile page
+    } else {
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign In
+        </h1>
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/page.tsx:
+
+// src/app/(auth)/login/page.tsx
+
+'use client';
+
+import LoginForm from './LoginForm';
+
+export default function LoginPage() {
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <LoginForm />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/page.tsx:
+
+// src/app/page.tsx
+
+import React from 'react';
+
+export default function Home() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
+          Get started by registering an account or signing in.
+        </p>
+        <div className="flex justify-center space-x-4">
+          <a
+            href="/register"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+          >
+            Sign Up
+          </a>
+          <a
+            href="/login"
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/globals.css:
+
+/* src/app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-color: #000000; /* Color del texto en modo claro y oscuro */
+  --background-color: #ffffff; /* Color de fondo en modo claro */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-color: #000000; /* Color del texto en modo oscuro */
+    --background-color: #000000; /* Color de fondo en modo oscuro */
+  }
+}
+
+body {
+  color: var(--foreground-color);
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Add this to ensure dark mode works when toggled manually */
+.dark body {
+  color: #000000;
+  background-color: #000000;
+}
+
+----------------------------------------
+
+// src/components/Header.tsx:
+
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+
+export default function Header() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    // Load the theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', newTheme);
+  };
+
+  return (
+    <header className="header bg-gray-800 text-white p-4 flex justify-between items-center">
+      <div className="container mx-auto">
+        <h1 className="text-2xl font-bold">Townwall</h1>
+      </div>
+      <button onClick={toggleTheme}>
+        {theme === 'light' ? (
+          <MoonIcon className="h-6 w-6 text-white" />
+        ) : (
+          <SunIcon className="h-6 w-6 text-white" />
+        )}
+      </button>
+    </header>
   );
 }
 

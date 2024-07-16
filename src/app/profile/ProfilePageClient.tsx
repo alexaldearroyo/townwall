@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getPostsByUserId } from '../../../database/posts';
 
 type PostType = {
   id: number;
@@ -37,10 +36,16 @@ export default function ProfilePageClient({
 
   useEffect(() => {
     const fetchPosts = async () => {
-      if (user && user.id) {
+      try {
         const response = await fetch(`/api/posts/user/${user.id}`);
-        const userPosts = await response.json();
-        setPosts(userPosts);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      } catch (err) {
+        setError('Failed to fetch posts');
       }
     };
 
@@ -130,15 +135,21 @@ export default function ProfilePageClient({
         <ul>
           {posts.length > 0 ? (
             posts.map((post) => (
-              <li key={post.id}>
-                <Link ref={`/posts/${post.slug}`} href={'/'}>
-                  <a>{post.title}</a>
+              <li key={`post-${post.id}`} className="mb-4">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
                 </Link>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
               </li>
             ))
           ) : (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              No Posts Yet
+              No posts yet
             </p>
           )}
         </ul>
