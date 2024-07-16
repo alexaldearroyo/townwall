@@ -375,7 +375,7 @@ export async function updateUserProfile(
 }
 
 // Helper function to parse location from string to { x: number; y: number }
-function parseLocation(
+export function parseLocation(
   locationString: string,
 ): { x: number; y: number } | null {
   const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);

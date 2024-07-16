@@ -12,22 +12,17 @@ type MapProps = {
 };
 
 const Map: React.FC<MapProps> = ({ latitude, longitude }) => {
-  useEffect(() => {
-    import('leaflet-defaulticon-compatibility');
-  }, []);
-
   return (
     <MapContainer
       center={[latitude, longitude]}
       zoom={13}
-      style={{ height: '400px', width: '100%' }}
+      style={{ width: '400px', height: '300px' }} // Adjust width and height as needed
     >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution={`&copy; <a href='http://osm.org/copyright'>OpenStreetMap</a> contributors`}
-      />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <Marker position={[latitude, longitude]}>
-        <Popup>User's Location</Popup>
+        <Popup>
+          A pretty CSS3 popup. <br /> Easily customizable.
+        </Popup>
       </Marker>
     </MapContainer>
   );
