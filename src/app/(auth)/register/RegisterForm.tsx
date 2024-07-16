@@ -1,22 +1,40 @@
-// src/app/(auth)/register/RegisterForm.tsx
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const router = useRouter();
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
+  }, []);
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
+    }
+
     const response = await fetch('/api/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, latitude, longitude }),
       headers: {
         'Content-Type': 'application/json',
       },

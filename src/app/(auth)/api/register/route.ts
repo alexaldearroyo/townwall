@@ -11,6 +11,8 @@ type RegisterResponseBodyPost =
 const userSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(3),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
 export async function POST(
@@ -31,7 +33,7 @@ export async function POST(
       );
     }
 
-    const { username, password } = result.data;
+    const { username, password, latitude, longitude } = result.data;
 
     const existingUser = await getUserByUsername(username);
 
@@ -51,6 +53,7 @@ export async function POST(
       username + '@example.com',
       profileId,
       slug,
+      { x: longitude, y: latitude },
     );
 
     // Create a session for the new user

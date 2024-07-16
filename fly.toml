@@ -13,5 +13,3 @@ primary_region = "otp"
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
-
-# test

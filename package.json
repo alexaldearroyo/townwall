@@ -14,10 +14,14 @@
   "dependencies": {
     "@heroicons/react": "^2.1.5",
     "@types/bcrypt": "^5.0.2",
+    "@types/leaflet": "^1.9.12",
+    "@types/react-leaflet": "^3.0.0",
     "@upleveled/ley": "^0.8.6",
     "bcrypt": "^5.1.1",
     "dotenv-safe": "^9.1.0",
     "esm": "^3.2.25",
+    "leaflet": "^1.9.4",
+    "leaflet-defaulticon-compatibility": "^0.1.2",
     "ley": "^0.8.1",
     "next": "14.2.4",
     "pg": "^8.12.0",
@@ -25,6 +29,7 @@
     "psql": "^0.0.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-leaflet": "^4.2.1",
     "server-only": "^0.0.1",
     "zod": "^3.23.8"
   },

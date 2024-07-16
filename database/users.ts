@@ -63,6 +63,7 @@ export async function createUser(
   email: string,
   profileId: number,
   slug: string,
+  location: { x: number; y: number },
 ): Promise<User> {
   const passwordHash = await bcrypt.hash(password, 10);
   const randomEmoji =
@@ -79,7 +80,7 @@ export async function createUser(
       description: string | null;
       interests: string | null;
       profileLinks: string | null;
-      location: any;
+      location: string | null;
       birthdate: Date | null;
       profession: string | null;
       createdAt: Date | null;
@@ -95,7 +96,8 @@ export async function createUser(
         user_image,
         email,
         profile_id,
-        slug
+        slug,
+        location
       )
     VALUES
       (
@@ -104,7 +106,14 @@ export async function createUser(
         ${randomEmoji},
         ${email},
         ${profileId},
-        ${slug}
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
       )
     RETURNING
       id,
@@ -116,7 +125,7 @@ export async function createUser(
       description,
       interests,
       profile_links AS "profileLinks",
-      location,
+      st_astext (location) AS "location",
       birthdate,
       profession,
       created_at AS "createdAt",
@@ -130,11 +139,12 @@ export async function createUser(
   }
 
   const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
   return user;
 }
 
-// Function to get a user by their username
-// Function to get a user by their username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {

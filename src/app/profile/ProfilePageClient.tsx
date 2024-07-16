@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Map from '../../components/Map';
 
 type PostType = {
   id: number;
@@ -26,7 +27,7 @@ export default function ProfilePageClient({
     interests?: string;
     profileLinks?: string;
     userImage?: string;
-    location?: string;
+    location?: { x: number; y: number } | null;
     birthdate?: string;
     profession?: string;
   };
@@ -116,10 +117,10 @@ export default function ProfilePageClient({
             Links: {user.profileLinks}
           </p>
         )}
-        {!!user.location && user.location.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Location: {user.location}
-          </p>
+        {!!user.location && (
+          <div className="w-full">
+            <Map latitude={user.location.y} longitude={user.location.x} />
+          </div>
         )}
         {!!user.birthdate && user.birthdate.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
