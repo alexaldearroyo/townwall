@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Map from '../../components/Map';
+import dynamic from 'next/dynamic';
+import { getCityAndCountry } from '../../../util/geocode';
+
+const Map = dynamic(() => import('../../components/Map'), { ssr: false });
 
 type PostType = {
   id: number;
@@ -14,6 +17,11 @@ type PostType = {
   createdAt: Date | null;
   updatedAt: Date | null;
   slug: string;
+};
+
+type LocationType = {
+  city: string;
+  country: string;
 };
 
 export default function ProfilePageClient({
@@ -34,6 +42,7 @@ export default function ProfilePageClient({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
+  const [location, setLocation] = useState<LocationType | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -52,6 +61,14 @@ export default function ProfilePageClient({
 
     fetchPosts();
   }, [user.id]);
+
+  useEffect(() => {
+    if (user.location) {
+      getCityAndCountry(user.location.y, user.location.x)
+        .then((loc) => setLocation(loc))
+        .catch((err) => setError('Failed to fetch location data'));
+    }
+  }, [user.location]);
 
   async function handleLogout() {
     const response = await fetch('/api/logout', {
@@ -120,6 +137,11 @@ export default function ProfilePageClient({
         {!!user.location && (
           <div className="w-full">
             <Map latitude={user.location.y} longitude={user.location.x} />
+            {!!location && (
+              <p className="text-center text-gray-700 dark:text-gray-300">
+                Location: {location.city}, {location.country}
+              </p>
+            )}
           </div>
         )}
         {!!user.birthdate && user.birthdate.trim() !== 'null' && (

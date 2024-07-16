@@ -410,6 +410,7 @@ export async function createUser(
   email: string,
   profileId: number,
   slug: string,
+  location: { x: number; y: number },
 ): Promise<User> {
   const passwordHash = await bcrypt.hash(password, 10);
   const randomEmoji =
@@ -426,7 +427,7 @@ export async function createUser(
       description: string | null;
       interests: string | null;
       profileLinks: string | null;
-      location: any;
+      location: string | null;
       birthdate: Date | null;
       profession: string | null;
       createdAt: Date | null;
@@ -442,7 +443,8 @@ export async function createUser(
         user_image,
         email,
         profile_id,
-        slug
+        slug,
+        location
       )
     VALUES
       (
@@ -451,7 +453,14 @@ export async function createUser(
         ${randomEmoji},
         ${email},
         ${profileId},
-        ${slug}
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
       )
     RETURNING
       id,
@@ -463,7 +472,7 @@ export async function createUser(
       description,
       interests,
       profile_links AS "profileLinks",
-      location,
+      st_astext (location) AS "location",
       birthdate,
       profession,
       created_at AS "createdAt",
@@ -477,11 +486,12 @@ export async function createUser(
   }
 
   const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
   return user;
 }
 
-// Function to get a user by their username
-// Function to get a user by their username
 export async function getUserByUsername(
   username: string,
 ): Promise<User | undefined> {
@@ -954,6 +964,87 @@ export default async function NewPostPage({
 
 ----------------------------------------
 
+// src/app/posts/[username]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import { getPostsByUserId } from '../../../../database/posts';
+
+export default async function UserPostsPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const posts = await getPostsByUserId(user.id);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-4xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+          Posts by {user.username}
+        </h1>
+        {posts.length > 0 ? (
+          <ul>
+            {posts.map((post) => (
+              <li key={`post-${post.id}`} className="mb-4">
+                <a
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
+                </a>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            No posts yet
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
 // src/app/posts/[username]/[slug]/page.tsx:
 
 import { cookies } from 'next/headers';
@@ -1010,7 +1101,10 @@ export default async function PostPage({
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getPostsByUserId } from '../../../database/posts';
+import dynamic from 'next/dynamic';
+import { getLocationName } from '../../../util/geocode';
+
+const Map = dynamic(() => import('../../components/Map'), { ssr: false });
 
 type PostType = {
   id: number;
@@ -1024,6 +1118,11 @@ type PostType = {
   slug: string;
 };
 
+type LocationType = {
+  city: string;
+  country: string;
+};
+
 export default function ProfilePageClient({
   user,
 }: {
@@ -1035,24 +1134,27 @@ export default function ProfilePageClient({
     interests?: string;
     profileLinks?: string;
     userImage?: string;
-    location?: string;
+    location?: { x: number; y: number } | null;
     birthdate?: string;
     profession?: string;
   };
 }) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
+  const [location, setLocation] = useState<LocationType | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
-      if (user && user.id) {
-        const response = await fetch(`/api/posts?userId=${user.id}`);
+      try {
+        const response = await fetch(`/api/posts/user/${user.id}`);
         if (response.ok) {
           const userPosts = await response.json();
           setPosts(userPosts);
         } else {
           setError('Failed to fetch posts');
         }
+      } catch (err) {
+        setError('Failed to fetch posts');
       }
     };
 
@@ -1123,10 +1225,10 @@ export default function ProfilePageClient({
             Links: {user.profileLinks}
           </p>
         )}
-        {!!user.location && user.location.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Location: {user.location}
-          </p>
+        {!!user.location && (
+          <div className="w-full">
+            <Map latitude={user.location.y} longitude={user.location.x} />
+          </div>
         )}
         {!!user.birthdate && user.birthdate.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
@@ -1142,15 +1244,21 @@ export default function ProfilePageClient({
         <ul>
           {posts.length > 0 ? (
             posts.map((post) => (
-              <li key={post.id}>
-                <Link href={`/posts/${user.username}/${post.slug}`}>
-                  <a>{post.title}</a>
+              <li key={`post-${post.id}`} className="mb-4">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
                 </Link>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
               </li>
             ))
           ) : (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              No Posts Yet
+              No posts yet
             </p>
           )}
         </ul>
@@ -1588,6 +1696,33 @@ export default function RootLayout({
 
 ----------------------------------------
 
+// src/app/api/posts/user/[id]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getPostsByUserId } from '../../../../../../database/posts';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const userId = parseInt(params.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(userId);
+    return NextResponse.json(posts);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
 // src/app/testpage/page.tsx:
 
 import React from 'react';
@@ -1602,25 +1737,43 @@ export default TestPage;
 
 // src/app/(auth)/register/RegisterForm.tsx:
 
-// src/app/(auth)/register/RegisterForm.tsx
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const router = useRouter();
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
+  }, []);
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
+    }
+
     const response = await fetch('/api/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, latitude, longitude }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -1887,6 +2040,8 @@ type RegisterResponseBodyPost =
 const userSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(3),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
 export async function POST(
@@ -1907,7 +2062,7 @@ export async function POST(
       );
     }
 
-    const { username, password } = result.data;
+    const { username, password, latitude, longitude } = result.data;
 
     const existingUser = await getUserByUsername(username);
 
@@ -1927,6 +2082,7 @@ export async function POST(
       username + '@example.com',
       profileId,
       slug,
+      { x: longitude, y: latitude },
     );
 
     // Create a session for the new user
@@ -2324,6 +2480,47 @@ body {
   color: #000000;
   background-color: #000000;
 }
+
+----------------------------------------
+
+// src/components/Map.tsx:
+
+'use client';
+
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-defaulticon-compatibility';
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
+
+type MapProps = {
+  latitude: number;
+  longitude: number;
+};
+
+const Map: React.FC<MapProps> = ({ latitude, longitude }) => {
+  useEffect(() => {
+    import('leaflet-defaulticon-compatibility');
+  }, []);
+
+  return (
+    <MapContainer
+      center={[latitude, longitude]}
+      zoom={13}
+      style={{ height: '400px', width: '100%' }}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={`&copy; <a href='http://osm.org/copyright'>OpenStreetMap</a> contributors`}
+      />
+      <Marker position={[latitude, longitude]}>
+        <Popup>User's Location</Popup>
+      </Marker>
+    </MapContainer>
+  );
+};
+
+export default Map;
 
 ----------------------------------------
 
