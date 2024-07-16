@@ -67,7 +67,7 @@ export default async function UserPostsPage({
           </ul>
         ) : (
           <p className="text-center text-gray-700 dark:text-gray-300">
-            No posts yet
+            Loading...
           </p>
         )}
       </div>
