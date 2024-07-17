@@ -1,7 +1,7 @@
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../database/users';
-import { getSessionByToken } from '../../../../database/sessions';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
 import ProfilePageClient from './ProfilePageClient';
 import Link from 'next/link';
 

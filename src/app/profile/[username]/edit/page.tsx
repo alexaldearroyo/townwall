@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserById } from '../../../../database/users';
-import { getSessionByToken } from '../../../../database/sessions';
+import { getUserById } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
 import EditProfileForm from './EditProfileForm';
 
 export default async function EditProfilePage() {

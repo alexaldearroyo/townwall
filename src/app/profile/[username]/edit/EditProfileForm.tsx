@@ -25,7 +25,7 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}`); // Redirect using the username
+        router.push(`/profile/${formData.username}/${formData.slug}`); // Redirect using the username
       } else {
         throw new Error('Failed to update profile');
       }
