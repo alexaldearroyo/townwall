@@ -82,3 +82,20 @@ export async function getFollowing(userId: number) {
       follows.follower_id = ${userId}
   `;
 }
+
+export async function getFollowingUsers(userId: number) {
+  return await sql<
+    { id: number; username: string; email: string; userImage: string }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
+}
