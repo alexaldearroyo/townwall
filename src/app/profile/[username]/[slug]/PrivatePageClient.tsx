@@ -24,7 +24,7 @@ type LocationType = {
   country: string;
 };
 
-export default function ProfilePageClient({
+export default function PrivatePageClient({
   user,
   loggedInUserId,
 }: {

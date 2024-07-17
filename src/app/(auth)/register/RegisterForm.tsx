@@ -3,6 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,9 +36,11 @@ export default function RegisterForm() {
       return;
     }
 
+    const slug = generateSlug(username);
+
     const response = await fetch('/api/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password, latitude, longitude }),
+      body: JSON.stringify({ username, password, latitude, longitude, slug }),
       headers: {
         'Content-Type': 'application/json',
       },

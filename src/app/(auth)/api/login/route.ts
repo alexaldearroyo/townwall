@@ -58,7 +58,10 @@ export async function POST(
 
     console.log('Session created:', session);
 
-    const response = NextResponse.json({ user }, { status: 200 });
+    const response = NextResponse.json(
+      { user: { ...user, slug: user.slug } },
+      { status: 200 },
+    );
     response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

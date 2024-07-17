@@ -2,7 +2,7 @@ import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../../database/users';
 import { getSessionByToken } from '../../../../../database/sessions';
-import ProfilePageClient from './ProfilePageClient';
+import PrivatePageClient from './PrivatePageClient';
 import Link from 'next/link';
 
 export default async function ProfilePage({
@@ -66,7 +66,7 @@ export default async function ProfilePage({
 
   return (
     <div>
-      <ProfilePageClient user={userProfile} loggedInUserId={loggedInUserId} />
+      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
     </div>
   );
 }

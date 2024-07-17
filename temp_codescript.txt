@@ -1195,7 +1195,7 @@ export default function SearchPage() {
 
 ----------------------------------------
 
-// src/app/profile/edit/EditProfileForm.tsx:
+// src/app/profile/[username]/edit/EditProfileForm.tsx:
 
 'use client';
 
@@ -1224,7 +1224,7 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}`); // Redirect using the username
+        router.push(`/profile/${formData.username}/${formData.slug}`); // Redirect using the username
       } else {
         throw new Error('Failed to update profile');
       }
@@ -1437,14 +1437,14 @@ export default function EditProfileForm({ user }: { user: any }) {
 
 ----------------------------------------
 
-// src/app/profile/edit/page.tsx:
+// src/app/profile/[username]/edit/page.tsx:
 
 // src/app/profile/edit/page.tsx
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserById } from '../../../../database/users';
-import { getSessionByToken } from '../../../../database/sessions';
+import { getUserById } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
 import EditProfileForm from './EditProfileForm';
 
 export default async function EditProfilePage() {
@@ -1492,16 +1492,16 @@ export default async function EditProfilePage() {
 
 ----------------------------------------
 
-// src/app/profile/[username]/ProfilePageClient.tsx:
+// src/app/profile/[username]/public/PublicPageClient.tsx:
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { getCityAndCountry } from '../../../../util/geocode';
+import { getCityAndCountry } from '../../../../../util/geocode';
 
-const Map = dynamic(() => import('../../../components/Map'), { ssr: false });
+const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
 
 type PostType = {
   id: number;
@@ -1520,7 +1520,206 @@ type LocationType = {
   country: string;
 };
 
-export default function ProfilePageClient({
+export default function PublicPageClient({
+  user,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [location, setLocation] = useState<LocationType | null>(null);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch(`/api/posts/user/${user.id}`);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      } catch (err) {
+        setError('Failed to fetch posts');
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
+
+  useEffect(() => {
+    if (user.location) {
+      getCityAndCountry(user.location.y, user.location.x)
+        .then((loc) => setLocation(loc))
+        .catch((err) => setError('Failed to fetch location data'));
+    }
+  }, [user.location]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          {user.username}'s Profile
+        </h1>
+        <div className="text-center mx-auto">
+          <span className="text-9xl">{user.userImage}</span>
+        </div>
+
+        {!!user.fullName && user.fullName.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Full Name: {user.fullName}
+          </p>
+        )}
+        {!!user.description && user.description.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Description: {user.description}
+          </p>
+        )}
+        {!!user.interests && user.interests.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Interests: {user.interests}
+          </p>
+        )}
+        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Links: {user.profileLinks}
+          </p>
+        )}
+        {!!user.location && (
+          <div className="w-full">
+            <Map latitude={user.location.y} longitude={user.location.x} />
+            {!!location && (
+              <p className="text-center text-gray-700 dark:text-gray-300">
+                Location: {location.city}, {location.country}
+              </p>
+            )}
+          </div>
+        )}
+        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Birthdate: {user.birthdate}
+          </p>
+        )}
+        {!!user.profession && user.profession.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Profession: {user.profession}
+          </p>
+        )}
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <li key={`post-${post.id}`} className="mb-4">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
+                </Link>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No posts yet
+            </p>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import PublicPageClient from './PublicPageClient';
+
+export default async function PublicProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    // ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <PublicPageClient user={userProfile} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/PrivatePageClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { getCityAndCountry } from '../../../../../util/geocode';
+
+const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+type LocationType = {
+  city: string;
+  country: string;
+};
+
+export default function PrivatePageClient({
   user,
   loggedInUserId,
 }: {
@@ -1683,7 +1882,9 @@ export default function ProfilePageClient({
               </button>
             </Link>
             <button
-              onClick={() => (window.location.href = `/profile/edit`)}
+              onClick={() =>
+                (window.location.href = `/profile/${user.username}/edit`)
+              }
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Edit Profile
@@ -1709,13 +1910,13 @@ export default function ProfilePageClient({
 
 ----------------------------------------
 
-// src/app/profile/[username]/page.tsx:
+// src/app/profile/[username]/[slug]/page.tsx:
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../database/users';
-import { getSessionByToken } from '../../../../database/sessions';
-import ProfilePageClient from './ProfilePageClient';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PrivatePageClient from './PrivatePageClient';
 import Link from 'next/link';
 
 export default async function ProfilePage({
@@ -1772,14 +1973,14 @@ export default async function ProfilePage({
     ...(user.interests && { interests: user.interests }),
     ...(user.profileLinks && { profileLinks: user.profileLinks }),
     ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
+    // ...(user.location && { location: user.location }),
     ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
     ...(user.profession && { profession: user.profession }),
   };
 
   return (
     <div>
-      <ProfilePageClient user={userProfile} loggedInUserId={loggedInUserId} />
+      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
     </div>
   );
 }
@@ -1865,6 +2066,10 @@ export default TestPage;
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -1894,9 +2099,11 @@ export default function RegisterForm() {
       return;
     }
 
+    const slug = generateSlug(username);
+
     const response = await fetch('/api/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password, latitude, longitude }),
+      body: JSON.stringify({ username, password, latitude, longitude, slug }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -2308,7 +2515,7 @@ const profileSchema = z.object({
   interests: z.string().optional(),
   profileLinks: z.string().optional(),
   userImage: z.string().optional(),
-  location: z.string().optional(),
+  // location: z.string().optional(),
   birthdate: z.string().optional(),
   profession: z.string().optional(),
 });
@@ -2491,6 +2698,7 @@ import { useRouter } from 'next/navigation';
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -2511,7 +2719,8 @@ export default function LoginForm() {
 
     if (response.ok) {
       console.log('Login successful:', data);
-      router.push(`/profile/${username}`); // Redirect to profile page
+      setSlug(data.user.slug); // Set the slug from the response
+      router.push(`/profile/${username}/${data.user.slug}`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(

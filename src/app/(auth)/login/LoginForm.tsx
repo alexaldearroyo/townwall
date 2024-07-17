@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -26,7 +27,8 @@ export default function LoginForm() {
 
     if (response.ok) {
       console.log('Login successful:', data);
-      router.push(`/profile/${username}`); // Redirect to profile page
+      setSlug(data.user.slug); // Set the slug from the response
+      router.push(`/profile/${username}/${data.user.slug}`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(
