@@ -1,4 +1,4 @@
-// database/connect.ts:
+en // database/connect.ts:
 
 import { unstable_noStore as noStore } from 'next/cache';
 import postgres, { Sql } from 'postgres';
@@ -25,6 +25,95 @@ function connectOneTimeToDatabase() {
 }
 
 export const sql = connectOneTimeToDatabase();
+
+----------------------------------------
+
+// database/follows.ts:
+
+import { sql } from './connect';
+
+export async function followUser(followerId: number, followedId: number) {
+  await sql`
+    INSERT INTO
+      follows (follower_id, followed_id)
+    VALUES
+      (
+        ${followerId},
+        ${followedId}
+      )
+  `;
+}
+
+export async function unfollowUser(followerId: number, followedId: number) {
+  await sql`
+    DELETE FROM follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+  `;
+}
+
+export async function getFollowers(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      passwordHash: string;
+      profileId: number;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      users.*
+    FROM
+      users
+      JOIN follows ON users.id = follows.follower_id
+    WHERE
+      follows.followed_id = ${userId}
+  `;
+}
+
+export async function getFollowing(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      passwordHash: string;
+      profileId: number;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      users.*
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
+}
 
 ----------------------------------------
 
@@ -1224,7 +1313,11 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}/${formData.slug}`); // Redirect using the username
+        const updatedUser = await response.json(); // Obtener los datos actualizados del usuario
+        setFormData(updatedUser.user); // Asegurarse de actualizar el formData con los datos del usuario actualizado
+        router.push(
+          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
+        ); // Redirigir usando el slug correcto
       } else {
         throw new Error('Failed to update profile');
       }
@@ -1522,6 +1615,7 @@ type LocationType = {
 
 export default function PublicPageClient({
   user,
+  loggedInUserId,
 }: {
   user: {
     id: number;
@@ -1535,10 +1629,12 @@ export default function PublicPageClient({
     birthdate?: string;
     profession?: string;
   };
+  loggedInUserId: number | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const [location, setLocation] = useState<LocationType | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -1565,6 +1661,30 @@ export default function PublicPageClient({
         .catch((err) => setError('Failed to fetch location data'));
     }
   }, [user.location]);
+
+  useEffect(() => {
+    const checkIfFollowing = async () => {
+      if (loggedInUserId) {
+        const response = await fetch(
+          `/api/follows?followerId=${loggedInUserId}&followedId=${user.id}`,
+        );
+        const result = await response.json();
+        setIsFollowing(result.isFollowing);
+      }
+    };
+
+    checkIfFollowing();
+  }, [loggedInUserId, user.id]);
+
+  const handleFollow = async () => {
+    await fetch('/api/follows', {
+      method: isFollowing ? 'DELETE' : 'POST',
+      body: JSON.stringify({ followerId: loggedInUserId, followedId: user.id }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    setIsFollowing(!isFollowing);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -1638,6 +1758,14 @@ export default function PublicPageClient({
             </p>
           )}
         </ul>
+        {!!loggedInUserId && loggedInUserId !== user.id && (
+          <button
+            onClick={handleFollow}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            {isFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -2603,6 +2731,95 @@ export async function GET(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/follows/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { followUser, unfollowUser } from '../../../../../database/follows';
+import { sql } from '../../../../../database/connect';
+
+export async function POST(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await followUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Followed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function DELETE(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await unfollowUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Unfollowed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const followerId = parseInt(url.searchParams.get('followerId') || '0', 10);
+  const followedId = parseInt(url.searchParams.get('followedId') || '0', 10);
+
+  if (!followerId || !followedId) {
+    return NextResponse.json(
+      { error: 'Follower ID and Followed ID are required' },
+      { status: 400 },
+    );
+  }
+
+  const [result] = await sql<{ '?column?': number }[]>`
+    SELECT
+      1
+    FROM
+      follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+    LIMIT
+      1
+  `;
+
+  const isFollowing = result !== undefined;
+  return NextResponse.json({ isFollowing }, { status: 200 });
 }
 
 ----------------------------------------

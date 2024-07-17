@@ -26,6 +26,7 @@ type LocationType = {
 
 export default function PublicPageClient({
   user,
+  loggedInUserId,
 }: {
   user: {
     id: number;
@@ -39,10 +40,12 @@ export default function PublicPageClient({
     birthdate?: string;
     profession?: string;
   };
+  loggedInUserId: number | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const [location, setLocation] = useState<LocationType | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -69,6 +72,30 @@ export default function PublicPageClient({
         .catch((err) => setError('Failed to fetch location data'));
     }
   }, [user.location]);
+
+  useEffect(() => {
+    const checkIfFollowing = async () => {
+      if (loggedInUserId) {
+        const response = await fetch(
+          `/api/follows?followerId=${loggedInUserId}&followedId=${user.id}`,
+        );
+        const result = await response.json();
+        setIsFollowing(result.isFollowing);
+      }
+    };
+
+    checkIfFollowing();
+  }, [loggedInUserId, user.id]);
+
+  const handleFollow = async () => {
+    await fetch('/api/follows', {
+      method: isFollowing ? 'DELETE' : 'POST',
+      body: JSON.stringify({ followerId: loggedInUserId, followedId: user.id }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    setIsFollowing(!isFollowing);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -142,6 +169,14 @@ export default function PublicPageClient({
             </p>
           )}
         </ul>
+        {!!loggedInUserId && loggedInUserId !== user.id && (
+          <button
+            onClick={handleFollow}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            {isFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
 import PublicPageClient from './PublicPageClient';
 
 export default async function PublicProfilePage({
@@ -9,6 +10,12 @@ export default async function PublicProfilePage({
   params: { username: string };
 }) {
   const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  const loggedInUserId = sessionToken
+    ? (await getSessionByToken(sessionToken.value))?.userId
+    : null;
 
   const user = await getUserByUsername(username);
 
@@ -35,7 +42,10 @@ export default async function PublicProfilePage({
 
   return (
     <div>
-      <PublicPageClient user={userProfile} />
+      <PublicPageClient
+        user={userProfile}
+        loggedInUserId={loggedInUserId ?? null}
+      />
     </div>
   );
 }
