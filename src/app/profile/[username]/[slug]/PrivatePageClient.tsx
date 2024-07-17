@@ -181,11 +181,14 @@ export default function PrivatePageClient({
 
         {loggedInUserId === user.id && (
           <>
-            <Link href={{ pathname: `/posts/${user.username}/new` }}>
-              <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                Add New Post
-              </button>
-            </Link>
+            <button
+              onClick={() =>
+                (window.location.href = `/profile/${user.username}/new`)
+              }
+              className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Add New Post
+            </button>
             <button
               onClick={() =>
                 (window.location.href = `/profile/${user.username}/edit`)
@@ -193,6 +196,14 @@ export default function PrivatePageClient({
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Edit Profile
+            </button>
+            <button
+              onClick={() =>
+                (window.location.href = `/profile/${user.username}/following`)
+              }
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Following
             </button>
             <button
               onClick={handleLogout}
