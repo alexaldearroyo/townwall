@@ -66,7 +66,7 @@ export default function SearchComponent() {
       <ul className="space-y-4">
         {results.map((user) => (
           <li key={`user-${user.id}`} className="flex items-center space-x-4">
-            <div className="flex-shrink-0 h-10 w-10">{user.userImage}</div>
+            <div className="h-15 w-15 rounded-full">{user.userImage}</div>
             <div>
               <div className="text-sm font-medium text-gray-900 dark:text-white">
                 {user.username}
