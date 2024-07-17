@@ -19,11 +19,7 @@ const Map: React.FC<MapProps> = ({ latitude, longitude }) => {
       style={{ width: '400px', height: '300px' }} // Adjust width and height as needed
     >
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <Marker position={[latitude, longitude]}>
-        <Popup>
-          A pretty CSS3 popup. <br /> Easily customizable.
-        </Popup>
-      </Marker>
+      <Marker position={[latitude, longitude]} />
     </MapContainer>
   );
 };

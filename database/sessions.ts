@@ -18,8 +18,8 @@ export async function createSession(userId: number): Promise<Session> {
       id: number;
       userId: number;
       token: string;
-      createdAt: Date | null;
-      expiresAt: Date | null;
+      createdAt: Date;
+      expiresAt: Date;
     }[]
   >`
     INSERT INTO
@@ -46,8 +46,8 @@ export async function createSession(userId: number): Promise<Session> {
     id: session.id,
     userId: session.userId,
     token: session.token,
-    createdAt: session.createdAt!,
-    expiresAt: session.expiresAt || new Date(),
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
   };
 }
 
@@ -59,8 +59,8 @@ export async function getSessionByToken(
       id: number;
       userId: number;
       token: string;
-      createdAt: Date | null;
-      expiresAt: Date | null;
+      createdAt: Date;
+      expiresAt: Date;
     }[]
   >`
     SELECT
@@ -80,8 +80,8 @@ export async function getSessionByToken(
         id: session.id,
         userId: session.userId,
         token: session.token,
-        createdAt: session.createdAt || new Date(),
-        expiresAt: session.expiresAt || new Date(),
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
       }
     : null;
 }

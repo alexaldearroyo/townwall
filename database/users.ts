@@ -56,7 +56,6 @@ export type UserProfile = {
   slug: string;
 };
 
-// Function to create a user
 export async function createUser(
   username: string,
   password: string,
