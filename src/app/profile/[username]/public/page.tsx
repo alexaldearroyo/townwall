@@ -28,7 +28,7 @@ export default async function PublicProfilePage({
     ...(user.interests && { interests: user.interests }),
     ...(user.profileLinks && { profileLinks: user.profileLinks }),
     ...(user.userImage && { userImage: user.userImage }),
-    // ...(user.location && { location: user.location }),
+    ...(user.location && { location: user.location }),
     ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
     ...(user.profession && { profession: user.profession }),
   };

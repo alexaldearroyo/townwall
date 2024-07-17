@@ -25,7 +25,11 @@ export default function EditProfileForm({ user }: { user: any }) {
       });
 
       if (response.ok) {
-        router.push(`/profile/${formData.username}/${formData.slug}`); // Redirect using the username
+        const updatedUser = await response.json(); // Obtener los datos actualizados del usuario
+        setFormData(updatedUser.user); // Asegurarse de actualizar el formData con los datos del usuario actualizado
+        router.push(
+          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
+        ); // Redirigir usando el slug correcto
       } else {
         throw new Error('Failed to update profile');
       }

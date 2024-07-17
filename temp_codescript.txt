@@ -1677,7 +1677,7 @@ export default async function PublicProfilePage({
     ...(user.interests && { interests: user.interests }),
     ...(user.profileLinks && { profileLinks: user.profileLinks }),
     ...(user.userImage && { userImage: user.userImage }),
-    // ...(user.location && { location: user.location }),
+    ...(user.location && { location: user.location }),
     ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
     ...(user.profession && { profession: user.profession }),
   };
@@ -1973,7 +1973,7 @@ export default async function ProfilePage({
     ...(user.interests && { interests: user.interests }),
     ...(user.profileLinks && { profileLinks: user.profileLinks }),
     ...(user.userImage && { userImage: user.userImage }),
-    // ...(user.location && { location: user.location }),
+    ...(user.location && { location: user.location }),
     ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
     ...(user.profession && { profession: user.profession }),
   };
@@ -2669,7 +2669,10 @@ export async function POST(
 
     console.log('Session created:', session);
 
-    const response = NextResponse.json({ user }, { status: 200 });
+    const response = NextResponse.json(
+      { user: { ...user, slug: user.slug } },
+      { status: 200 },
+    );
     response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -2720,7 +2723,7 @@ export default function LoginForm() {
     if (response.ok) {
       console.log('Login successful:', data);
       setSlug(data.user.slug); // Set the slug from the response
-      router.push(`/profile/${username}/${data.user.slug}`); // Redirect to profile page
+      router.push(`/profile/${username}/${slug}`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(
