@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { getPostByUserAndSlug } from '../../../../../database/posts';
 import { getSessionByToken } from '../../../../../database/sessions';
-import PostClient from '../../PostClient';
+import PostClient from './PostClient';
 import React from 'react';
 
 export default async function PostPage({

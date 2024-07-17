@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { getCityAndCountry } from '../../../util/geocode';
+import { getCityAndCountry } from '../../../../util/geocode';
 
-const Map = dynamic(() => import('../../components/Map'), { ssr: false });
+const Map = dynamic(() => import('../../../components/Map'), { ssr: false });
 
 type PostType = {
   id: number;
@@ -172,14 +172,14 @@ export default function ProfilePageClient({
             ))
           ) : (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              Loading...
+              No posts yet
             </p>
           )}
         </ul>
 
         <Link href={{ pathname: `/posts/${user.username}/new` }}>
           <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            Add new post
+            Add New Post
           </button>
         </Link>
         <button
