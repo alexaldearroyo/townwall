@@ -73,7 +73,10 @@ export default function EditProfileForm({ user }: { user: any }) {
             <strong>Picture URL:</strong> {formData.userImage || 'N/A'}
           </p>
           <p>
-            <strong>Location:</strong> {formData.location || 'N/A'}
+            <strong>Location:</strong>{' '}
+            {formData.location
+              ? `X: ${formData.location.x}, Y: ${formData.location.y}`
+              : 'N/A'}
           </p>
           <p>
             <strong>Birthdate:</strong> {formData.birthdate || 'N/A'}

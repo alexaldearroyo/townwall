@@ -26,6 +26,7 @@ type LocationType = {
 
 export default function ProfilePageClient({
   user,
+  loggedInUserId,
 }: {
   user: {
     id: number;
@@ -39,6 +40,7 @@ export default function ProfilePageClient({
     birthdate?: string;
     profession?: string;
   };
+  loggedInUserId: number | null;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
@@ -177,29 +179,33 @@ export default function ProfilePageClient({
           )}
         </ul>
 
-        <Link href={{ pathname: `/posts/${user.username}/new` }}>
-          <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            Add New Post
-          </button>
-        </Link>
-        <button
-          onClick={() => (window.location.href = `/profile/edit`)}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={handleLogout}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-        <button
-          onClick={handleDeleteAccount}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Delete Account
-        </button>
+        {loggedInUserId === user.id && (
+          <>
+            <Link href={{ pathname: `/posts/${user.username}/new` }}>
+              <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Add New Post
+              </button>
+            </Link>
+            <button
+              onClick={() => (window.location.href = `/profile/edit`)}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Sign Out
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete Account
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

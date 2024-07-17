@@ -23,6 +23,7 @@ export default async function ProfilePage({
   }
 
   const session = await getSessionByToken(sessionToken.value);
+  const loggedInUserId = session ? session.userId : null;
 
   if (!session) {
     return (
@@ -65,7 +66,7 @@ export default async function ProfilePage({
 
   return (
     <div>
-      <ProfilePageClient user={userProfile} />
+      <ProfilePageClient user={userProfile} loggedInUserId={loggedInUserId} />
     </div>
   );
 }

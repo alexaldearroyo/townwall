@@ -14,7 +14,7 @@ const profileSchema = z.object({
   interests: z.string().optional(),
   profileLinks: z.string().optional(),
   userImage: z.string().optional(),
-  location: z.string().optional(),
+  // location: z.string().optional(),
   birthdate: z.string().optional(),
   profession: z.string().optional(),
 });

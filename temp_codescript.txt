@@ -1,3 +1,739 @@
+// database/connect.ts:
+
+import { unstable_noStore as noStore } from 'next/cache';
+import postgres, { Sql } from 'postgres';
+import postgresConfig from '../ley.config.js';
+import { setEnvironmentVariables } from '../util/config.js';
+
+setEnvironmentVariables();
+
+declare module globalThis {
+  let postgresSqlClient: Sql;
+}
+
+function connectOneTimeToDatabase() {
+  if (!('postgresSqlClient' in globalThis)) {
+    globalThis.postgresSqlClient = postgres(postgresConfig);
+  }
+
+  return ((
+    ...sqlParameters: Parameters<typeof globalThis.postgresSqlClient>
+  ) => {
+    noStore();
+    return globalThis.postgresSqlClient(...sqlParameters);
+  }) as typeof globalThis.postgresSqlClient;
+}
+
+export const sql = connectOneTimeToDatabase();
+
+----------------------------------------
+
+// database/posts.ts:
+
+import { sql } from './connect';
+
+export type Post = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId?: string | number | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export async function getPostById(postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      id = ${postId}
+  `;
+  return posts[0];
+}
+
+export async function getPostsByUserId(userId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+  `;
+  return posts;
+}
+
+export async function getPostByUserAndId(slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      slug = ${slug}
+  `;
+  return posts[0];
+}
+
+export async function createPost(
+  userId: number,
+  title: string,
+  content: string,
+  slug: string,
+  icon: string = '',
+  categoryId?: number,
+): Promise<Post> {
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      posts (
+        user_id,
+        icon,
+        title,
+        content,
+        category_id,
+        slug
+      )
+    VALUES
+      (
+        ${userId},
+        ${icon || null},
+        ${title},
+        ${content},
+        ${categoryId ?? null},
+        ${slug}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+  `;
+
+  if (!post) {
+    throw new Error('Failed to create post');
+  }
+
+  const createdAt = new Date(post.createdAt);
+  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
+
+  const result: Post = {
+    ...post,
+    createdAt,
+    updatedAt,
+  };
+
+  return result;
+}
+
+export async function getPostByUserAndSlug(username: string, slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.category_id AS "categoryId",
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug
+    FROM
+      posts p
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      u.username = ${username}
+      AND p.slug = ${slug}
+  `;
+  return posts[0];
+}
+
+----------------------------------------
+
+// database/sessions.ts:
+
+import { sql } from './connect';
+import crypto from 'node:crypto';
+
+export type Session = {
+  id: number;
+  userId: number;
+  token: string;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+export async function createSession(userId: number): Promise<Session> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    INSERT INTO
+      sessions (user_id, token, expires_at)
+    VALUES
+      (
+        ${userId},
+        ${token},
+        ${expiresAt}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+  `;
+
+  if (!session) {
+    throw new Error('Session creation failed');
+  }
+
+  return {
+    id: session.id,
+    userId: session.userId,
+    token: session.token,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+  };
+}
+
+export async function getSessionByToken(
+  token: string,
+): Promise<Session | null> {
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+    FROM
+      sessions
+    WHERE
+      token = ${token}
+  `;
+
+  return session
+    ? {
+        id: session.id,
+        userId: session.userId,
+        token: session.token,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      }
+    : null;
+}
+
+export async function deleteSessionByToken(token: string): Promise<void> {
+  await sql`
+    DELETE FROM sessions
+    WHERE
+      token = ${token}
+  `;
+}
+
+----------------------------------------
+
+// database/users.ts:
+
+import { sql } from './connect';
+import bcrypt from 'bcrypt';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
+export type User = {
+  id: number;
+  username: string;
+  passwordHash: string;
+  userImage: string | null;
+  email: string;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  location?: { x: number; y: number } | null | unknown;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  description: string | null;
+  interests: string | null;
+  profileLinks: string | null;
+  userImage: string | null;
+  location: { x: number; y: number } | null;
+  birthdate: Date | null;
+  profession: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export async function createUser(
+  username: string,
+  password: string,
+  email: string,
+  profileId: number,
+  slug: string,
+  location: { x: number; y: number },
+): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
+        username,
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug,
+        location
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
+
+  const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
+  return user;
+}
+
+export async function getUserByUsername(
+  username: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${username}
+  `;
+
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}
+
+// Function to get a user by their ID
+export async function getUserById(id: number): Promise<User> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      id = ${id}
+  `;
+
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
+}
+
+// Function to delete a user by their ID
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
+}
+
+// Function to update user profile
+export async function updateUserProfile(
+  userId: number,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile> {
+  const birthdateValue = profileData.birthdate
+    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
+    : null;
+  const locationValue = profileData.location
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
+    : null;
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    UPDATE users
+    SET
+      full_name = coalesce(
+        ${profileData.fullName ?? 'null'},
+        full_name
+      ),
+      description = coalesce(
+        ${profileData.description ?? 'null'},
+        description
+      ),
+      interests = coalesce(
+        ${profileData.interests ?? 'null'},
+        interests
+      ),
+      profile_links = coalesce(
+        ${profileData.profileLinks ?? 'null'},
+        profile_links
+      ),
+      user_image = coalesce(
+        ${profileData.userImage ?? 'null'},
+        user_image
+      ),
+      location = coalesce(
+        ${locationValue}::geometry,
+        location
+      ),
+      birthdate = coalesce(
+        ${birthdateValue}::date,
+        birthdate
+      ),
+      profession = coalesce(
+        ${profileData.profession ?? 'null'},
+        profession
+      ),
+      updated_at = now()
+    WHERE
+      id = ${userId}
+    RETURNING
+      id,
+      username,
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  const updatedUser = users[0];
+
+  if (!updatedUser) {
+    throw new Error('Profile update failed');
+  }
+
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+export function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
+}
+
+----------------------------------------
+
 // src/app/middleware.ts:
 
 import { NextResponse } from 'next/server';
@@ -23,12 +759,9 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Check if the user is trying to access the profile of another user
-  const profileMatch = pathname.match(/^\/profile\/([^\/]+)$/);
-  if (profileMatch) {
-    const userId = profileMatch[1];
-    if (parseInt(userId ?? '') !== user.id) {
-      return NextResponse.redirect(`/profile/${user.id}`);
-    }
+  const editProfileMatch = pathname.match(/^\/profile\/edit$/);
+  if (editProfileMatch && user.id !== session.userId) {
+    return NextResponse.redirect(`/profile/${user.username}`);
   }
 
   return NextResponse.next();
@@ -37,27 +770,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/profile/:path*'], // Protected routes
 };
-
-----------------------------------------
-
-// src/app/posts/PostClient.tsx:
-
-import React from 'react';
-
-export default function PostClient({ post }: { post: any }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          {post.title}
-        </h1>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {post.content}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 ----------------------------------------
 
@@ -308,12 +1020,33 @@ export default async function UserPostsPage({
 
 ----------------------------------------
 
+// src/app/posts/[username]/[slug]/PostClient.tsx:
+
+import React from 'react';
+
+export default function PostClient({ post }: { post: any }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          {post.title}
+        </h1>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          {post.content}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
 // src/app/posts/[username]/[slug]/page.tsx:
 
 import { cookies } from 'next/headers';
 import { getPostByUserAndSlug } from '../../../../../database/posts';
 import { getSessionByToken } from '../../../../../database/sessions';
-import PostClient from '../../PostClient';
+import PostClient from './PostClient';
 import React from 'react';
 
 export default async function PostPage({
@@ -358,7 +1091,7 @@ export default async function PostPage({
 
 ----------------------------------------
 
-// src/app/search/page.tsx:
+// src/app/search/SearchComponent.tsx:
 
 'use client';
 
@@ -372,7 +1105,7 @@ type UserType = {
   location: string | null;
 };
 
-export default function SearchPage() {
+export default function SearchComponent() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserType[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -396,264 +1129,66 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Search Users
-        </h1>
-        <form onSubmit={handleSearch} className="space-y-6">
-          <div>
-            <label
-              htmlFor="query"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Search by username or location
-            </label>
-            <input
-              id="query"
-              name="query"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Enter username or location"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-              Search
-            </button>
-          </div>
-        </form>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul className="space-y-4">
-          {results.map((user) => (
-            <li key={`user-${user.id}`} className="flex items-center space-x-4">
-              <div className="flex-shrink-0 h-10 w-10">{user.userImage}</div>
-              <div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user.username}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-300">
-                  {/* {!!user.icon && <span>{user.icon} </span>} */}
-                  {user.location ? user.location : 'Location not available'}
-                </div>
+    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+        Search Users
+      </h1>
+      <form onSubmit={handleSearch} className="space-y-6">
+        <div>
+          <label
+            htmlFor="query"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Search by username or location
+          </label>
+          <input
+            id="query"
+            name="query"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter username or location"
+            required
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+        <div>
+          <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Search
+          </button>
+        </div>
+      </form>
+      {!!error && <p className="text-red-500 text-center">{error}</p>}
+      <ul className="space-y-4">
+        {results.map((user) => (
+          <li key={`user-${user.id}`} className="flex items-center space-x-4">
+            <div className="flex-shrink-0 h-10 w-10">{user.userImage}</div>
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                {user.username}
               </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">
+                {/* {!!user.icon && <span>{user.icon} </span>} */}
+                {user.location ? user.location : 'Location not available'}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 ----------------------------------------
 
-// src/app/profile/ProfilePageClient.tsx:
+// src/app/search/page.tsx:
 
-'use client';
+import React from 'react';
+import SearchComponent from './SearchComponent';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { getCityAndCountry } from '../../../util/geocode';
-
-const Map = dynamic(() => import('../../components/Map'), { ssr: false });
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-type LocationType = {
-  city: string;
-  country: string;
-};
-
-export default function ProfilePageClient({
-  user,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [location, setLocation] = useState<LocationType | null>(null);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch(`/api/posts/user/${user.id}`);
-        if (response.ok) {
-          const userPosts = await response.json();
-          setPosts(userPosts);
-        } else {
-          setError('Failed to fetch posts');
-        }
-      } catch (err) {
-        setError('Failed to fetch posts');
-      }
-    };
-
-    fetchPosts();
-  }, [user.id]);
-
-  useEffect(() => {
-    if (user.location) {
-      getCityAndCountry(user.location.y, user.location.x)
-        .then((loc) => setLocation(loc))
-        .catch((err) => setError('Failed to fetch location data'));
-    }
-  }, [user.location]);
-
-  async function handleLogout() {
-    const response = await fetch('/api/logout', {
-      method: 'POST',
-    });
-
-    if (response.ok) {
-      window.location.href = '/login'; // Redirect to login page after logout
-    } else {
-      setError('Failed to log out');
-    }
-  }
-
-  async function handleDeleteAccount() {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action is irreversible.',
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    const response = await fetch('/api/delete', {
-      method: 'POST',
-    });
-
-    if (response.ok) {
-      window.location.href = '/'; // Redirect to home page after account deletion
-    } else {
-      const data = await response.json();
-      setError(
-        data.errors ? data.errors[0].message : 'Failed to delete account',
-      );
-    }
-  }
-
+export default function SearchPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Welcome, {user.username}
-        </h1>
-        <div className="text-center mx-auto">
-          <span className="text-9xl">{user.userImage}</span>
-        </div>
-
-        {!!user.fullName && user.fullName.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Full Name: {user.fullName}
-          </p>
-        )}
-        {!!user.description && user.description.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Description: {user.description}
-          </p>
-        )}
-        {!!user.interests && user.interests.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Interests: {user.interests}
-          </p>
-        )}
-        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Links: {user.profileLinks}
-          </p>
-        )}
-        {!!user.location && (
-          <div className="w-full">
-            <Map latitude={user.location.y} longitude={user.location.x} />
-            {!!location && (
-              <p className="text-center text-gray-700 dark:text-gray-300">
-                Location: {location.city}, {location.country}
-              </p>
-            )}
-          </div>
-        )}
-        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Birthdate: {user.birthdate}
-          </p>
-        )}
-        {!!user.profession && user.profession.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Profession: {user.profession}
-          </p>
-        )}
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul>
-          {posts.length > 0 ? (
-            posts.map((post) => (
-              <li key={`post-${post.id}`} className="mb-4">
-                <Link
-                  href={`/posts/${user.username}/${post.slug}`}
-                  className="text-xl font-semibold text-blue-600 hover:underline"
-                >
-                  {post.title}
-                </Link>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {post.content.slice(0, 100)}...
-                </p>
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              Loading...
-            </p>
-          )}
-        </ul>
-
-        <Link href={{ pathname: `/posts/${user.username}/new` }}>
-          <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            Add new post
-          </button>
-        </Link>
-        <button
-          onClick={() => (window.location.href = `/profile/edit`)}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={handleLogout}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-        <button
-          onClick={handleDeleteAccount}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Delete Account
-        </button>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <SearchComponent />
     </div>
   );
 }
@@ -737,7 +1272,10 @@ export default function EditProfileForm({ user }: { user: any }) {
             <strong>Picture URL:</strong> {formData.userImage || 'N/A'}
           </p>
           <p>
-            <strong>Location:</strong> {formData.location || 'N/A'}
+            <strong>Location:</strong>{' '}
+            {formData.location
+              ? `X: ${formData.location.x}, Y: ${formData.location.y}`
+              : 'N/A'}
           </p>
           <p>
             <strong>Birthdate:</strong> {formData.birthdate || 'N/A'}
@@ -954,13 +1492,230 @@ export default async function EditProfilePage() {
 
 ----------------------------------------
 
+// src/app/profile/[username]/ProfilePageClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { getCityAndCountry } from '../../../../util/geocode';
+
+const Map = dynamic(() => import('../../../components/Map'), { ssr: false });
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+type LocationType = {
+  city: string;
+  country: string;
+};
+
+export default function ProfilePageClient({
+  user,
+  loggedInUserId,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  loggedInUserId: number | null;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [location, setLocation] = useState<LocationType | null>(null);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch(`/api/posts/user/${user.id}`);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      } catch (err) {
+        setError('Failed to fetch posts');
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
+
+  useEffect(() => {
+    if (user.location) {
+      getCityAndCountry(user.location.y, user.location.x)
+        .then((loc) => setLocation(loc))
+        .catch((err) => setError('Failed to fetch location data'));
+    }
+  }, [user.location]);
+
+  async function handleLogout() {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/login'; // Redirect to login page after logout
+    } else {
+      setError('Failed to log out');
+    }
+  }
+
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This action is irreversible.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/'; // Redirect to home page after account deletion
+    } else {
+      const data = await response.json();
+      setError(
+        data.errors ? data.errors[0].message : 'Failed to delete account',
+      );
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Welcome, {user.username}
+        </h1>
+        <div className="text-center mx-auto">
+          <span className="text-9xl">{user.userImage}</span>
+        </div>
+
+        {!!user.fullName && user.fullName.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Full Name: {user.fullName}
+          </p>
+        )}
+        {!!user.description && user.description.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Description: {user.description}
+          </p>
+        )}
+        {!!user.interests && user.interests.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Interests: {user.interests}
+          </p>
+        )}
+        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Links: {user.profileLinks}
+          </p>
+        )}
+        {!!user.location && (
+          <div className="w-full">
+            <Map latitude={user.location.y} longitude={user.location.x} />
+            {!!location && (
+              <p className="text-center text-gray-700 dark:text-gray-300">
+                Location: {location.city}, {location.country}
+              </p>
+            )}
+          </div>
+        )}
+        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Birthdate: {user.birthdate}
+          </p>
+        )}
+        {!!user.profession && user.profession.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Profession: {user.profession}
+          </p>
+        )}
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {posts.length > 0 ? (
+            posts.map((post) => (
+              <li key={`post-${post.id}`} className="mb-4">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
+                </Link>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No posts yet
+            </p>
+          )}
+        </ul>
+
+        {loggedInUserId === user.id && (
+          <>
+            <Link href={{ pathname: `/posts/${user.username}/new` }}>
+              <button className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Add New Post
+              </button>
+            </Link>
+            <button
+              onClick={() => (window.location.href = `/profile/edit`)}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Sign Out
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete Account
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
 // src/app/profile/[username]/page.tsx:
 
 import React from 'react';
 import { cookies } from 'next/headers';
 import { getUserByUsername } from '../../../../database/users';
 import { getSessionByToken } from '../../../../database/sessions';
-import ProfilePageClient from '../ProfilePageClient';
+import ProfilePageClient from './ProfilePageClient';
 import Link from 'next/link';
 
 export default async function ProfilePage({
@@ -981,6 +1736,7 @@ export default async function ProfilePage({
   }
 
   const session = await getSessionByToken(sessionToken.value);
+  const loggedInUserId = session ? session.userId : null;
 
   if (!session) {
     return (
@@ -1023,7 +1779,7 @@ export default async function ProfilePage({
 
   return (
     <div>
-      <ProfilePageClient user={userProfile} />
+      <ProfilePageClient user={userProfile} loggedInUserId={loggedInUserId} />
     </div>
   );
 }
@@ -1842,35 +2598,18 @@ export default function LoginPage() {
 
 // src/app/page.tsx:
 
-// src/app/page.tsx
-
 import React from 'react';
+import HomeContent from './HomeStart';
 
-export default function Home() {
+const Home: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
-          Get started by registering an account or signing in.
-        </p>
-        <div className="flex justify-center space-x-4">
-          <a
-            href="/register"
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
-          >
-            Sign Up
-          </a>
-          <a
-            href="/login"
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-          >
-            Sign In
-          </a>
-        </div>
-      </div>
+      <HomeContent />
     </div>
   );
-}
+};
+
+export default Home;
 
 ----------------------------------------
 
@@ -1907,6 +2646,38 @@ body {
   color: #000000;
   background-color: #000000;
 }
+
+----------------------------------------
+
+// src/app/HomeStart.tsx:
+
+import React from 'react';
+
+const HomeContent: React.FC = () => {
+  return (
+    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+      <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
+        Get started by registering an account or signing in.
+      </p>
+      <div className="flex justify-center space-x-4">
+        <a
+          href="/register"
+          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+        >
+          Sign Up
+        </a>
+        <a
+          href="/login"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+        >
+          Sign In
+        </a>
+      </div>
+    </div>
+  );
+};
+
+export default HomeContent;
 
 ----------------------------------------
 

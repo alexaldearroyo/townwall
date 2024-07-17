@@ -21,12 +21,9 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Check if the user is trying to access the profile of another user
-  const profileMatch = pathname.match(/^\/profile\/([^\/]+)$/);
-  if (profileMatch) {
-    const userId = profileMatch[1];
-    if (parseInt(userId ?? '') !== user.id) {
-      return NextResponse.redirect(`/profile/${user.id}`);
-    }
+  const editProfileMatch = pathname.match(/^\/profile\/edit$/);
+  if (editProfileMatch && user.id !== session.userId) {
+    return NextResponse.redirect(`/profile/${user.username}`);
   }
 
   return NextResponse.next();
