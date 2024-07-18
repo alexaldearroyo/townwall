@@ -69,10 +69,9 @@ export default function SearchComponent() {
             <div className="h-15 w-15 rounded-full">{user.userImage}</div>
             <div>
               <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {user.username}
+                <a href={`/profile/${user.username}/public`}>{user.username}</a>
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-300">
-                {/* {!!user.icon && <span>{user.icon} </span>} */}
                 {user.location ? user.location : 'Location not available'}
               </div>
             </div>

@@ -31,7 +31,9 @@ const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
               <div className="h-15 w-15 rounded-full">{user.userImage}</div>
               <div>
                 <p className="text-lg font-medium text-gray-900 dark:text-white">
-                  {user.username}
+                  <a href={`/profile/${user.username}/public`}>
+                    {user.username}
+                  </a>
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-300">
                   {user.email}
