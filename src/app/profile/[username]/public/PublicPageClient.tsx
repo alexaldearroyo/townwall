@@ -19,6 +19,16 @@ type PostType = {
   slug: string;
 };
 
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
+};
+
 type LocationType = {
   city: string;
   country: string;
@@ -46,6 +56,8 @@ export default function PublicPageClient({
   const [posts, setPosts] = useState<PostType[]>([]);
   const [location, setLocation] = useState<LocationType | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -95,6 +107,50 @@ export default function PublicPageClient({
     });
 
     setIsFollowing(!isFollowing);
+  };
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(
+          `/api/profile/comments?profileId=${user.id}`,
+        );
+        if (response.ok) {
+          const profileComments = await response.json();
+          setComments(profileComments);
+        } else {
+          setError('Failed to fetch comments');
+        }
+      } catch (err) {
+        setError('Failed to fetch comments');
+      }
+    };
+
+    fetchComments();
+  }, [user.id]);
+
+  const handleCommentSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/profile/comments', {
+        method: 'POST',
+        body: JSON.stringify({ profileId: user.id, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err) {
+      setError('Failed to add comment');
+    }
   };
 
   return (
@@ -176,6 +232,43 @@ export default function PublicPageClient({
           >
             {isFollowing ? 'Unfollow' : 'Follow'}
           </button>
+        )}
+        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
+          Comments
+        </h2>
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500 dark:text-gray-400">
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                {comment.username}
+              </small>
+            </div>
+          ))}
+        </div>
+
+        {isFollowing && (
+          <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment"
+              required
+              className="w-full p-2 border border-gray-300 rounded-md"
+            />
+            <button
+              type="submit"
+              className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
+            >
+              Submit
+            </button>
+          </form>
         )}
       </div>
     </div>
