@@ -28,7 +28,7 @@ export default function LoginForm() {
     if (response.ok) {
       console.log('Login successful:', data);
       setSlug(data.user.slug); // Set the slug from the response
-      router.push(`/profile/${username}/${slug}`); // Redirect to profile page
+      router.push(`/profile/${username}/private`); // Redirect to profile page
     } else {
       console.log('Login failed:', data);
       setError(
