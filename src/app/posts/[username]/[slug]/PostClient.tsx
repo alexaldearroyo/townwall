@@ -1,6 +1,49 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+};
 
 export default function PostClient({ post }: { post: any }) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/comments?postId=${post.id}`)
+      .then((response) => response.json())
+      .then((data) => setComments(data))
+      .catch((err) => setError('Failed to fetch comments'));
+  }, [post.id]);
+
+  const handleCommentSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        body: JSON.stringify({ postId: post.id, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err) {
+      setError('Failed to add comment');
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
@@ -10,6 +53,35 @@ export default function PostClient({ post }: { post: any }) {
         <p className="text-center text-gray-700 dark:text-gray-300">
           {post.content}
         </p>
+
+        <form onSubmit={handleCommentSubmit} className="space-y-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+          <button
+            type="submit"
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
+          >
+            Submit
+          </button>
+        </form>
+
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div key={comment.id} className="p-4 bg-gray-100 rounded-md">
+              <p className="text-gray-700">{comment.content}</p>
+              <small className="text-gray-500">
+                {new Date(comment.createdAt).toLocaleString()}
+              </small>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,11 @@
 import { Sql } from 'postgres';
 
 export async function up(sql: Sql) {
-  await sql` CREATE EXTENSION if NOT EXISTS postgis; `;
+  await sql`
+    CREATE EXTENSION if NOT EXISTS postgis
+    WITH
+      schema public;
+  `;
 
   await sql`
     CREATE TABLE users (

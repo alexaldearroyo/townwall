@@ -4,6 +4,8 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE comments (
       id serial PRIMARY KEY,
+      post_id int NOT NULL REFERENCES posts (id) ON DELETE cascade,
+      user_id int NOT NULL REFERENCES users (id) ON DELETE cascade,
       content text NOT NULL,
       created_at timestamp DEFAULT CURRENT_TIMESTAMP,
       updated_at timestamp DEFAULT CURRENT_TIMESTAMP
