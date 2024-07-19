@@ -1,7 +1,6 @@
 import { sql } from './connect';
 
 export type Post = {
-  id: number;
   userId: number;
   icon: string | null;
   title: string;
@@ -178,6 +177,7 @@ export async function createPost(
 export async function getPostByUserAndSlug(username: string, slug: string) {
   const posts = await sql<
     {
+      [x: string]: string;
       id: number;
       userId: number;
       icon: string | null;

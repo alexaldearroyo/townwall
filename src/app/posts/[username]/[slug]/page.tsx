@@ -41,5 +41,8 @@ export default async function PostPage({
     );
   }
 
+  // Include the author's username in the post data
+  post.author = username;
+
   return <PostClient post={post} />;
 }

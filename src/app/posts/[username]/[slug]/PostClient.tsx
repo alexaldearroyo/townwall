@@ -74,7 +74,7 @@ export default function PostClient({ post }: { post: any }) {
           <div className="flex justify-center">
             <button
               type="submit"
-              className="w-0.5/2 py-2 px-4 bg-indigo-600 text-white rounded-md"
+              className="w-1/2 py-2 px-4 bg-indigo-600 text-white rounded-md"
             >
               Submit
             </button>
