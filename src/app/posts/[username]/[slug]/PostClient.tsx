@@ -46,13 +46,22 @@ export default function PostClient({ post }: { post: any }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           {post.title}
         </h1>
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          By {post.author} on {new Date(post.createdAt).toLocaleDateString()}
+        </p>
         <p className="text-center text-gray-700 dark:text-gray-300">
           {post.content}
         </p>
+
+        <hr className="my-4 border-gray-300 dark:border-gray-600" />
+
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Comments:
+        </h2>
 
         <form onSubmit={handleCommentSubmit} className="space-y-4">
           <textarea
@@ -62,12 +71,14 @@ export default function PostClient({ post }: { post: any }) {
             required
             className="w-full p-2 border border-gray-300 rounded-md"
           />
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
-          >
-            Submit
-          </button>
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="w-0.5/2 py-2 px-4 bg-indigo-600 text-white rounded-md"
+            >
+              Submit
+            </button>
+          </div>
         </form>
 
         {!!error && <p className="text-red-500 text-center">{error}</p>}
