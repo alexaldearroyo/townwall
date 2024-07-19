@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { getCityAndCountry } from '../../../../../util/geocode';
-
-const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
+import UserProfile from './UserProfile';
+import UserPosts from './UserPosts';
+import UserFriends from './UserFriends';
 
 type PostType = {
   id: number;
@@ -84,141 +83,21 @@ export default function PrivatePageClient({
     }
   }
 
-  async function handleDeleteAccount() {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete your account? This action is irreversible.',
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    const response = await fetch('/api/delete', {
-      method: 'POST',
-    });
-
-    if (response.ok) {
-      window.location.href = '/'; // Redirect to home page after account deletion
-    } else {
-      const data = await response.json();
-      setError(
-        data.errors ? data.errors[0].message : 'Failed to delete account',
-      );
-    }
+  function handleNewPost() {
+    window.location.href = `/posts/${user.username}/new`;
   }
 
   return (
-    <div className="min-h-screen pt-32 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Welcome, {user.username}
-        </h1>
-        <div className="text-center mx-auto">
-          <span className="text-9xl">{user.userImage}</span>
-        </div>
-
-        {!!user.fullName && user.fullName.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Full Name: {user.fullName}
-          </p>
-        )}
-        {!!user.description && user.description.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Description: {user.description}
-          </p>
-        )}
-        {!!user.interests && user.interests.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Interests: {user.interests}
-          </p>
-        )}
-        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Links: {user.profileLinks}
-          </p>
-        )}
-        {!!user.location && (
-          <div className="w-full flex justify-center">
-            <Map latitude={user.location.y} longitude={user.location.x} />
-          </div>
-        )}
-        {!!location && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Location: {location.city}, {location.country}
-          </p>
-        )}
-        {!!user.birthdate && user.birthdate.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Birthdate: {user.birthdate}
-          </p>
-        )}
-        {!!user.profession && user.profession.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Profession: {user.profession}
-          </p>
-        )}
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul>
-          {posts.length > 0 ? (
-            posts.map((post) => (
-              <li key={`post-${post.id}`} className="mb-4">
-                <Link
-                  href={`/posts/${user.username}/${post.slug}`}
-                  className="text-xl font-semibold text-blue-600 hover:underline"
-                >
-                  {post.title}
-                </Link>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {post.content.slice(0, 100)}...
-                </p>
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              No posts yet
-            </p>
-          )}
-        </ul>
-
-        {loggedInUserId === user.id && (
-          <>
-            <button
-              onClick={() =>
-                (window.location.href = `/posts/${user.username}/new`)
-              }
-              className="mt-4 mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-              Add New Post
-            </button>
-            <button
-              onClick={() =>
-                (window.location.href = `/profile/${user.username}/edit`)
-              }
-              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Edit Profile
-            </button>
-            <button
-              onClick={() =>
-                (window.location.href = `/profile/${user.username}/following`)
-              }
-              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Following
-            </button>
-            <button
-              onClick={handleLogout}
-              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Sign Out
-            </button>
-            <button
-              onClick={handleDeleteAccount}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Delete Account
-            </button>
-          </>
-        )}
+    <div className="min-h-screen pt-32 px-4 lg:px-16 flex flex-col items-center lg:items-start justify-start bg-gray-100 dark:bg-gray-900 space-y-8 main-container lg:flex lg:flex-row lg:space-x-8">
+      <UserProfile
+        user={user}
+        location={location}
+        error={error}
+        handleLogout={handleLogout}
+      />
+      <div className="flex flex-col w-full lg:w-3/5 space-y-8">
+        <UserPosts user={user} posts={posts} handleNewPost={handleNewPost} />
+        <UserFriends user={user} />
       </div>
     </div>
   );
