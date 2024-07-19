@@ -1,12 +1,8 @@
-// src/app/search/page.tsx
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import SearchComponent from './SearchComponent';
-import dynamic from 'next/dynamic';
-
-const Map = dynamic(() => import('../../components/Map'), { ssr: false });
+import NearbyUsersMap from './NearbyUsersMap';
 
 export default function SearchPage() {
   const [location, setLocation] = useState<{
@@ -48,18 +44,11 @@ export default function SearchPage() {
         </div>
         {location && nearbyUsers.length > 0 && (
           <div className="flex-1 h-full">
-            <div className="w-full h-full p-8 bg-white rounded-lg shadow dark:bg-gray-800">
-              <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-                Nearby Users
-              </h1>
-              <div className="w-full h-96 mt-4">
-                <Map
-                  latitude={location.latitude}
-                  longitude={location.longitude}
-                  markers={nearbyUsers}
-                />
-              </div>
-            </div>
+            <NearbyUsersMap
+              latitude={location.latitude}
+              longitude={location.longitude}
+              markers={nearbyUsers}
+            />
           </div>
         )}
       </div>
