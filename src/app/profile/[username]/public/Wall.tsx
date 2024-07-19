@@ -1,131 +1,4 @@
-// src/app/profile/[username]/public/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PublicPageClient from './PublicPageClient';
-
-export default async function PublicProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  const loggedInUserId = sessionToken
-    ? (await getSessionByToken(sessionToken.value))?.userId
-    : null;
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
-  };
-
-  return (
-    <div>
-      <PublicPageClient
-        user={userProfile}
-        loggedInUserId={loggedInUserId ?? null}
-      />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/PublicPageClient.tsx:
-
 'use client';
-
-import React, { useState, useEffect } from 'react';
-import Wall from './Wall';
-import Posts from './Posts';
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-export default function PublicPageClient({
-  user,
-  loggedInUserId,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  loggedInUserId: number | null;
-}) {
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch(`/api/posts/user/${user.id}`);
-        if (response.ok) {
-          const userPosts = await response.json();
-          setPosts(userPosts);
-        } else {
-          setError('Failed to fetch posts');
-        }
-      } catch (err) {
-        setError('Failed to fetch posts');
-      }
-    };
-
-    fetchPosts();
-  }, [user.id]);
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 space-y-8">
-      <div className="w-full max-w-4xl p-8 flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-8 bg-white rounded-lg shadow dark:bg-gray-800">
-        <Wall user={user} loggedInUserId={loggedInUserId} />
-        <Posts posts={posts} username={user.username} />
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Wall.tsx:
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -299,7 +172,7 @@ export default function Wall({
       {!!loggedInUserId && loggedInUserId !== user.id && (
         <button
           onClick={handleFollow}
-          className="w-full flex justify-center py-1 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
         >
           {isFollowing ? 'Unfollow' : 'Follow'}
         </button>
@@ -335,7 +208,7 @@ export default function Wall({
           />
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
+            className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
           >
             Submit
           </button>
@@ -344,62 +217,3 @@ export default function Wall({
     </div>
   );
 }
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Posts.tsx:
-
-import React from 'react';
-import Link from 'next/link';
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-export default function Posts({
-  posts,
-  username,
-}: {
-  posts: PostType[];
-  username: string;
-}) {
-  return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-        {username}'s Posts
-      </h2>
-      <ul>
-        {posts.length > 0 ? (
-          posts.map((post) => (
-            <li key={`post-${post.id}`} className="mb-4">
-              <Link
-                href={`/posts/${username}/${post.slug}`}
-                className="text-xl font-semibold text-blue-600 hover:underline"
-              >
-                {post.title}
-              </Link>
-              <p className="text-gray-700 dark:text-gray-300">
-                {post.content.slice(0, 100)}...
-              </p>
-            </li>
-          ))
-        ) : (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No posts yet
-          </p>
-        )}
-      </ul>
-    </div>
-  );
-}
-
-----------------------------------------
-
