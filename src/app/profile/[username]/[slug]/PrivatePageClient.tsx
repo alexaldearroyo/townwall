@@ -88,7 +88,7 @@ export default function PrivatePageClient({
   }
 
   return (
-    <div className="min-h-screen pt-32 px-4 lg:px-16 flex flex-col items-center lg:items-start justify-start bg-gray-100 dark:bg-gray-900 space-y-8 main-container lg:flex lg:flex-row lg:space-x-8">
+    <div className="min-h-screen pt-32 px-4 lg:px-16 flex flex-col lg:flex-row items-start justify-start bg-gray-100 dark:bg-gray-900 space-y-8 lg:space-y-0 lg:space-x-8">
       <UserProfile
         user={user}
         location={location}

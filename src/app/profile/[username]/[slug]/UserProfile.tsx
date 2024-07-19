@@ -89,7 +89,7 @@ export default function UserProfile({
       </div>
       <div className="w-full space-y-4">
         <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Comments
+          Comments by Friends
         </h2>
         <div className="space-y-2">
           <p className="text-center text-gray-700 dark:text-gray-300">
