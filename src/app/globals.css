@@ -24,7 +24,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Add this to ensure dark mode works when toggled manually */
 .dark body {
   color: #000000;
   background-color: #000000;
@@ -32,5 +31,5 @@ body {
 
 .leaflet-container {
   width: 100% !important;
-  height: 400px !important; /* Ajusta esto según sea necesario */
+  height: 400px !important;
 }

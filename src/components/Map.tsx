@@ -9,7 +9,7 @@ import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility
 type MapProps = {
   latitude: number;
   longitude: number;
-  markers?: { id: number; username: string; location: string }[]; // Ajusta el tipo según tus datos
+  markers?: { id: number; username: string; location: string }[];
 };
 
 const parseLocation = (location: string) => {
@@ -22,12 +22,15 @@ const parseLocation = (location: string) => {
 
 const Map: React.FC<MapProps> = ({ latitude, longitude, markers = [] }) => {
   return (
-    <div style={{ width: '100%', height: '400px' }}>
-      <MapContainer
-        center={[latitude, longitude]}
-        zoom={13}
-        style={{ width: '100%', height: '100%' }} // Ajusta el ancho y la altura según sea necesario
-      >
+    <div
+      style={{
+        width: '100%',
+        height: '400px',
+        position: 'relative',
+        zIndex: 1,
+      }}
+    >
+      <MapContainer center={[latitude, longitude]} zoom={13}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <Marker position={[latitude, longitude] as [number, number]}>
           <Popup>Your Location</Popup>
