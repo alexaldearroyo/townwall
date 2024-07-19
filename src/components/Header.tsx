@@ -45,7 +45,13 @@ const Header: React.FC<HeaderProps> = ({ username }) => {
           <Link href="/search" passHref>
             <MagnifyingGlassIcon className="h-6 w-6 text-white mr-4 cursor-pointer" />
           </Link>
-          <span className="mr-4 text-lg font-medium">{username}</span>
+          {!!username && (
+            <Link href={`/profile/${username}/private`} passHref>
+              <span className="mr-4 text-lg font-medium cursor-pointer">
+                {username}
+              </span>
+            </Link>
+          )}
           <button onClick={toggleTheme}>
             {theme === 'light' ? (
               <MoonIcon className="h-6 w-6 text-white" />
