@@ -8,6 +8,7 @@ type CommentType = {
   userId: number;
   content: string;
   createdAt: Date;
+  username: string;
 };
 
 export default function PostClient({ post }: { post: any }) {
@@ -88,7 +89,8 @@ export default function PostClient({ post }: { post: any }) {
             <div key={comment.id} className="p-4 bg-gray-100 rounded-md">
               <p className="text-gray-700">{comment.content}</p>
               <small className="text-gray-500">
-                {new Date(comment.createdAt).toLocaleString()}
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                {comment.username}
               </small>
             </div>
           ))}

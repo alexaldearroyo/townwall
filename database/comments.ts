@@ -56,17 +56,19 @@ export async function createComment(
 export function getCommentsByPostId(postId: number): Promise<Comment[]> {
   return sql<Comment[]>`
     SELECT
-      id,
-      coalesce(post_id, 0) AS "postId",
-      coalesce(user_id, 0) AS "userId",
-      content,
-      created_at AS "createdAt"
+      comments.id,
+      comments.post_id AS "postId",
+      comments.user_id AS "userId",
+      comments.content,
+      comments.created_at AS "createdAt",
+      users.username -- Agregar el username aquí
     FROM
       comments
+      JOIN users ON comments.user_id = users.id -- Asegurarse de hacer el join con la tabla de usuarios
     WHERE
-      post_id = ${postId}
+      comments.post_id = ${postId}
     ORDER BY
-      created_at DESC
+      comments.created_at DESC
   `;
 }
 
