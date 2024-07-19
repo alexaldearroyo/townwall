@@ -1,3 +1,5 @@
+// src/app/search/SearchComponent.tsx
+
 'use client';
 
 import React, { useState } from 'react';
@@ -34,7 +36,7 @@ export default function SearchComponent() {
   }
 
   return (
-    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="w-full max-w-3xl h-full p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
       <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
         Search Users
       </h1>

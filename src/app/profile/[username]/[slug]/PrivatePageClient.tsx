@@ -107,8 +107,8 @@ export default function PrivatePageClient({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="min-h-screen pt-32 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Welcome, {user.username}
         </h1>
@@ -137,14 +137,14 @@ export default function PrivatePageClient({
           </p>
         )}
         {!!user.location && (
-          <div className="w-full">
+          <div className="w-full flex justify-center">
             <Map latitude={user.location.y} longitude={user.location.x} />
-            {!!location && (
-              <p className="text-center text-gray-700 dark:text-gray-300">
-                Location: {location.city}, {location.country}
-              </p>
-            )}
           </div>
+        )}
+        {!!location && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Location: {location.city}, {location.country}
+          </p>
         )}
         {!!user.birthdate && user.birthdate.trim() !== 'null' && (
           <p className="text-center text-gray-700 dark:text-gray-300">
@@ -185,7 +185,7 @@ export default function PrivatePageClient({
               onClick={() =>
                 (window.location.href = `/posts/${user.username}/new`)
               }
-              className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              className="mt-4 mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
               Add New Post
             </button>
@@ -193,7 +193,7 @@ export default function PrivatePageClient({
               onClick={() =>
                 (window.location.href = `/profile/${user.username}/edit`)
               }
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Edit Profile
             </button>
@@ -201,13 +201,13 @@ export default function PrivatePageClient({
               onClick={() =>
                 (window.location.href = `/profile/${user.username}/following`)
               }
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Following
             </button>
             <button
               onClick={handleLogout}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="mb-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Sign Out
             </button>
