@@ -24,6 +24,10 @@ body {
   box-sizing: border-box;
 }
 
+/* main {
+  padding-top: 60px;
+} */
+
 .dark body {
   color: #000000;
   background-color: #000000;
