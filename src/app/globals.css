@@ -29,3 +29,8 @@ body {
   color: #000000;
   background-color: #000000;
 }
+
+.leaflet-container {
+  width: 100% !important;
+  height: 400px !important; /* Ajusta esto según sea necesario */
+}
