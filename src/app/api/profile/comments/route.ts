@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar si el profileId existe en la tabla de comentarios de perfil
-    const [profileExists] = await sql<{ id: number | null }[]>`
+    // Verify if the profileId exists in the profile comments table
+    const [profileExists] = await sql<{ id: number }[]>`
       SELECT
         id
       FROM
