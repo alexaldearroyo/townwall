@@ -1,7 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+import {
+  SunIcon,
+  MoonIcon,
+  MagnifyingGlassIcon,
+} from '@heroicons/react/24/solid';
+import Link from 'next/link';
 
 interface HeaderProps {
   username?: string;
@@ -33,10 +38,13 @@ const Header: React.FC<HeaderProps> = ({ username }) => {
   };
 
   return (
-    <header className="header fixed top-0 left-0 w-full bg-gray-800 text-white p-4 flex justify-between items-center z-50">
+    <header className="header bg-gray-800 text-white p-4 flex justify-between items-center">
       <div className="container mx-auto flex justify-between items-center">
         <h1 className="text-2xl font-bold">Townwall</h1>
         <div className="flex items-center">
+          <Link href="/search" passHref>
+            <MagnifyingGlassIcon className="h-6 w-6 text-white mr-4 cursor-pointer" />
+          </Link>
           <span className="mr-4 text-lg font-medium">{username}</span>
           <button onClick={toggleTheme}>
             {theme === 'light' ? (
