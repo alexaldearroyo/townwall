@@ -37,21 +37,19 @@ export default function SearchPage() {
   }, [location]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 pt-16">
-      <div className="w-full max-w-7xl flex flex-col lg:flex-row lg:space-x-8">
-        <div className="flex-1 h-full">
-          <SearchComponent />
-        </div>
-        {location && nearbyUsers.length > 0 && (
-          <div className="flex-1 h-full">
-            <NearbyUsersMap
-              latitude={location.latitude}
-              longitude={location.longitude}
-              markers={nearbyUsers}
-            />
-          </div>
-        )}
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+        <SearchComponent />
       </div>
+      {location && nearbyUsers.length > 0 && (
+        <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+          <NearbyUsersMap
+            latitude={location.latitude}
+            longitude={location.longitude}
+            markers={nearbyUsers}
+          />
+        </div>
+      )}
     </div>
   );
 }
