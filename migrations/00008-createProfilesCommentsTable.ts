@@ -4,8 +4,8 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE profile_comments (
       id serial PRIMARY KEY,
-      profile_id int NOT NULL REFERENCES users (profile_id),
       user_id int NOT NULL REFERENCES users (id),
+      commenter_id int NOT NULL REFERENCES users (id),
       content text NOT NULL,
       created_at timestamp DEFAULT CURRENT_TIMESTAMP
     )

@@ -1,428 +1,1304 @@
-// src/app/profile/[username]/[slug]/PrivatePageClient.tsx:
+// database/comments.ts:
 
-'use client';
+import { sql } from './connect';
 
-import React, { useState, useEffect } from 'react';
-import { getCityAndCountry } from '../../../../../util/geocode';
-import UserProfile from './UserProfile';
-import UserPosts from './UserPosts';
-import UserFriends from './UserFriends';
-
-type PostType = {
+export type Comment = {
   id: number;
+  postId: number;
   userId: number;
-  icon: string | null;
-  title: string;
   content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
+  createdAt: Date;
 };
 
-type LocationType = {
-  city: string;
-  country: string;
+export type ProfileComment = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
 };
 
-export default function PrivatePageClient({
-  user,
-  loggedInUserId,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  loggedInUserId: number | null;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [location, setLocation] = useState<LocationType | null>(null);
+export async function createComment(
+  postId: number,
+  userId: number,
+  content: string,
+): Promise<Comment> {
+  const [comment] = await sql<
+    {
+      id: number;
+      postId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+    }[]
+  >`
+    INSERT INTO
+      comments (post_id, user_id, content)
+    VALUES
+      (
+        ${postId},
+        ${userId},
+        ${content}
+      )
+    RETURNING
+      id,
+      post_id AS "postId",
+      user_id AS "userId",
+      content,
+      created_at AS "createdAt"
+  `;
+  if (comment === undefined) {
+    throw new Error('Comment not found');
+  }
+  return comment as Comment;
+}
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch(`/api/posts/user/${user.id}`);
-        if (response.ok) {
-          const userPosts = await response.json();
-          setPosts(userPosts);
-        } else {
-          setError('Failed to fetch posts');
-        }
-      } catch (err) {
-        setError('Failed to fetch posts');
-      }
-    };
+export function getCommentsByPostId(postId: number): Promise<Comment[]> {
+  return sql<Comment[]>`
+    SELECT
+      comments.id,
+      comments.post_id AS "postId",
+      comments.user_id AS "userId",
+      comments.content,
+      comments.created_at AS "createdAt",
+      users.username -- Agregar el username aquí
+    FROM
+      comments
+      JOIN users ON comments.user_id = users.id -- Asegurarse de hacer el join con la tabla de usuarios
+    WHERE
+      comments.post_id = ${postId}
+    ORDER BY
+      comments.created_at DESC
+  `;
+}
 
-    fetchPosts();
-  }, [user.id]);
+export async function createProfileComment(
+  profileId: number,
+  userId: number,
+  content: string,
+): Promise<ProfileComment> {
+  try {
+    // Validar si el profileId existe en la tabla users
+    const profile = await sql<{ profileId: number }[]>`
+      SELECT
+        profile_id
+      FROM
+        users
+      WHERE
+        profile_id = ${profileId}
+    `;
 
-  useEffect(() => {
-    if (user.location) {
-      getCityAndCountry(user.location.y, user.location.x)
-        .then((loc) => setLocation(loc))
-        .catch((err) => setError('Failed to fetch location data'));
+    if (profile.length === 0) {
+      throw new Error(
+        `El profile_id ${profileId} no existe en la tabla users.`,
+      );
     }
-  }, [user.location]);
 
-  async function handleLogout() {
-    const response = await fetch('/api/logout', {
-      method: 'POST',
-    });
+    const [comment] = await sql<ProfileComment[]>`
+      INSERT INTO
+        profile_comments (profile_id, user_id, content)
+      VALUES
+        (
+          ${profileId},
+          ${userId},
+          ${content}
+        )
+      RETURNING
+        id,
+        profile_id AS "profileId",
+        user_id AS "userId",
+        content,
+        created_at AS "createdAt",
+        (
+          SELECT
+            username
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "username",
+        (
+          SELECT
+            user_image
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "userImage"
+    `;
 
-    if (response.ok) {
-      window.location.href = '/login'; // Redirect to login page after logout
+    if (!comment) {
+      throw new Error('Failed to create profile comment');
+    }
+
+    return comment;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('violates foreign key constraint')
+    ) {
+      throw new Error(
+        `El profile_id ${profileId} no existe en la tabla users.`,
+      );
     } else {
-      setError('Failed to log out');
+      throw error;
     }
   }
+}
 
-  function handleNewPost() {
-    window.location.href = `/posts/${user.username}/new`;
+export function getCommentsByProfileId(
+  profileId: number,
+): Promise<ProfileComment[]> {
+  return sql<ProfileComment[]>`
+    SELECT
+      profile_comments.id,
+      profile_comments.profile_id AS "profileId",
+      profile_comments.user_id AS "userId",
+      profile_comments.content,
+      profile_comments.created_at AS "createdAt",
+      users.username,
+      users.user_image AS "userImage"
+    FROM
+      profile_comments
+      JOIN users ON profile_comments.user_id = users.id
+    WHERE
+      profile_comments.profile_id = ${profileId}
+    ORDER BY
+      profile_comments.created_at DESC
+  `;
+}
+
+----------------------------------------
+
+// database/connect.ts:
+
+import { unstable_noStore as noStore } from 'next/cache';
+import postgres, { Sql } from 'postgres';
+import postgresConfig from '../ley.config.js';
+import { setEnvironmentVariables } from '../util/config.js';
+
+setEnvironmentVariables();
+
+declare module globalThis {
+  let postgresSqlClient: Sql;
+}
+
+function connectOneTimeToDatabase() {
+  if (!('postgresSqlClient' in globalThis)) {
+    globalThis.postgresSqlClient = postgres(postgresConfig);
   }
 
-  return (
-    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
-        <UserProfile
-          user={user}
-          location={location}
-          error={error}
-          handleLogout={handleLogout}
-        />
-      </div>
-      <div className="w-full md:w-2/3 flex flex-col space-y-8">
-        <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
-          <UserPosts user={user} posts={posts} handleNewPost={handleNewPost} />
-        </div>
-        <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
-          <UserFriends user={user} />
-        </div>
-      </div>
-    </div>
-  );
+  return ((
+    ...sqlParameters: Parameters<typeof globalThis.postgresSqlClient>
+  ) => {
+    noStore();
+    return globalThis.postgresSqlClient(...sqlParameters);
+  }) as typeof globalThis.postgresSqlClient;
+}
+
+export const sql = connectOneTimeToDatabase();
+
+----------------------------------------
+
+// database/follows.ts:
+
+import { sql } from './connect';
+
+export async function followUser(followerId: number, followedId: number) {
+  await sql`
+    INSERT INTO
+      follows (follower_id, followed_id)
+    VALUES
+      (
+        ${followerId},
+        ${followedId}
+      )
+  `;
+}
+
+export async function unfollowUser(followerId: number, followedId: number) {
+  await sql`
+    DELETE FROM follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+  `;
+}
+
+export async function getFollowers(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      passwordHash: string;
+      profileId: number;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      users.*
+    FROM
+      users
+      JOIN follows ON users.id = follows.follower_id
+    WHERE
+      follows.followed_id = ${userId}
+  `;
+}
+
+export async function getFollowing(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      passwordHash: string;
+      profileId: number;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      users.*
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
+}
+
+export async function getFollowingUsers(userId: number) {
+  return await sql<
+    { id: number; username: string; email: string; userImage: string }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
 }
 
 ----------------------------------------
 
-// src/app/profile/[username]/[slug]/UserFriends.tsx:
+// database/posts.ts:
 
-'use client';
+import { sql } from './connect';
 
-import React from 'react';
-import dynamic from 'next/dynamic';
-
-interface MapProps {
-  latitude: number;
-  longitude: number;
-  height: string;
-}
-
-const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
-
-export default function UserFriends({
-  user,
-}: {
-  user: {
-    username: string;
-    location?: { x: number; y: number } | null;
-  };
-}) {
-  return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Friends
-      </h2>
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={() =>
-            (window.location.href = `/profile/${user.username}/following`)
-          }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Followed Friends
-        </button>
-        <button
-          onClick={() =>
-            (window.location.href = `/profile/${user.username}/followers`)
-          }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          My Followers
-        </button>
-      </div>
-
-      <h3 className="text-lg text-center text-gray-900 dark:text-white">
-        Nearby friends:
-      </h3>
-      {!!user.location && (
-        <div className="w-full flex justify-center">
-          <Map latitude={user.location.y} longitude={user.location.x} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserPosts.tsx:
-
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-
-type PostType = {
-  id: number;
+export type Post = {
   userId: number;
   icon: string | null;
   title: string;
   content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
+  categoryId?: string | number | null;
+  createdAt: Date;
   updatedAt: Date | null;
   slug: string;
 };
 
-export default function UserPosts({
-  user,
-  posts,
-  handleNewPost,
-}: {
-  user: { username: string };
-  posts: PostType[];
-  handleNewPost: () => void;
-}) {
-  return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Posts
-      </h2>
-      <ul>
-        {posts.length > 0 ? (
-          posts.map((post) => (
-            <li key={`post-${post.id}`} className="mb-4">
-              <Link
-                href={`/posts/${user.username}/${post.slug}`}
-                className="text-xl font-semibold text-blue-600 hover:underline"
-              >
-                {post.title}
-              </Link>
-              <p className="text-gray-700 dark:text-gray-300">
-                {post.content.slice(0, 100)}...
-              </p>
-            </li>
-          ))
-        ) : (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No posts yet
-          </p>
-        )}
-      </ul>
-      <div className="flex justify-center">
-        <button
-          onClick={handleNewPost}
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          Add New Post
-        </button>
-      </div>
-    </div>
-  );
+export async function getPostById(postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      id = ${postId}
+  `;
+  return posts[0];
 }
 
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserProfile.tsx:
-
-'use client';
-
-import React from 'react';
-
-export default function UserProfile({
-  user,
-  location,
-  error,
-  handleLogout,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  location: { city: string; country: string } | null;
-  error: string | null;
-  handleLogout: () => void;
-}) {
-  return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-        My Wall
-      </h1>
-      <div className="text-center mx-auto">
-        <span className="text-9xl">{user.userImage}</span>
-      </div>
-      <p className="text-center text-gray-700 dark:text-gray-300">
-        Username: {user.username}
-      </p>
-      {!!user.fullName && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Full Name: {user.fullName}
-        </p>
-      )}
-      {!!user.description && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Description: {user.description}
-        </p>
-      )}
-      {!!user.interests && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Interests: {user.interests}
-        </p>
-      )}
-      {!!user.profileLinks && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Links: {user.profileLinks}
-        </p>
-      )}
-      {!!location && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Location: {location.city}, {location.country}
-        </p>
-      )}
-      {!!user.birthdate && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Birthdate: {user.birthdate}
-        </p>
-      )}
-      {!!user.profession && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Profession: {user.profession}
-        </p>
-      )}
-      {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={() =>
-            (window.location.href = `/profile/${user.username}/edit`)
-          }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-      </div>
-      <div className="w-full space-y-4">
-        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Comments by Friends
-        </h2>
-        <div className="space-y-2">
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No comments yet
-          </p>
-          {/* Puedes añadir más estructura para los comentarios aquí */}
-        </div>
-      </div>
-    </div>
-  );
+export async function getPostsByUserId(userId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+  `;
+  return posts;
 }
 
-----------------------------------------
+export async function getPostByUserAndId(slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      slug = ${slug}
+  `;
+  return posts[0];
+}
 
-// src/app/profile/[username]/[slug]/page.tsx:
+export async function createPost(
+  userId: number,
+  title: string,
+  content: string,
+  slug: string,
+  icon: string = '',
+  categoryId?: number,
+): Promise<Post> {
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      posts (
+        user_id,
+        icon,
+        title,
+        content,
+        category_id,
+        slug
+      )
+    VALUES
+      (
+        ${userId},
+        ${icon || null},
+        ${title},
+        ${content},
+        ${categoryId ?? null},
+        ${slug}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      category_id AS "categoryId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+  `;
 
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PrivatePageClient from './PrivatePageClient';
-import Link from 'next/link';
-
-export default async function ProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
+  if (!post) {
+    throw new Error('Failed to create post');
   }
 
-  const session = await getSessionByToken(sessionToken.value);
-  const loggedInUserId = session ? session.userId : null;
+  const createdAt = new Date(post.createdAt);
+  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
+
+  const result: Post = {
+    ...post,
+    createdAt,
+    updatedAt,
+  };
+
+  return result;
+}
+
+export async function getPostByUserAndSlug(username: string, slug: string) {
+  const posts = await sql<
+    {
+      [x: string]: string;
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.category_id AS "categoryId",
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug
+    FROM
+      posts p
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      u.username = ${username}
+      AND p.slug = ${slug}
+  `;
+  return posts[0];
+}
+
+----------------------------------------
+
+// database/sessions.ts:
+
+import { sql } from './connect';
+import crypto from 'node:crypto';
+
+export type Session = {
+  id: number;
+  userId: number;
+  token: string;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+export async function createSession(userId: number): Promise<Session> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    INSERT INTO
+      sessions (user_id, token, expires_at)
+    VALUES
+      (
+        ${userId},
+        ${token},
+        ${expiresAt}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+  `;
 
   if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
+    throw new Error('Session creation failed');
   }
 
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  if (session.userId !== user.id) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">Access denied</p>
-      </div>
-    );
-  }
-
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
+  return {
+    id: session.id,
+    userId: session.userId,
+    token: session.token,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
   };
+}
 
-  return (
-    <div>
-      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
-    </div>
-  );
+export async function getSessionByToken(
+  token: string,
+): Promise<Session | null> {
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+    FROM
+      sessions
+    WHERE
+      token = ${token}
+  `;
+
+  return session
+    ? {
+        id: session.id,
+        userId: session.userId,
+        token: session.token,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      }
+    : null;
+}
+
+export async function deleteSessionByToken(token: string): Promise<void> {
+  await sql`
+    DELETE FROM sessions
+    WHERE
+      token = ${token}
+  `;
+}
+
+----------------------------------------
+
+// database/users.ts:
+
+import { sql } from './connect';
+import bcrypt from 'bcrypt';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
+export type User = {
+  id: number;
+  username: string;
+  passwordHash: string;
+  userImage: string | null;
+  email: string;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  location?: { x: number; y: number } | null | unknown;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  description: string | null;
+  interests: string | null;
+  profileLinks: string | null;
+  userImage: string | null;
+  location: { x: number; y: number } | null;
+  birthdate: Date | null;
+  profession: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export async function createUser(
+  username: string,
+  password: string,
+  email: string,
+  profileId: number,
+  slug: string,
+  location: { x: number; y: number },
+): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
+        username,
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug,
+        location
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
+
+  const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
+  return user;
+}
+
+export async function getUserByUsername(
+  username: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${username}
+  `;
+
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}
+
+// Function to get a user by their ID
+export async function getUserById(id: number): Promise<User> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      id = ${id}
+  `;
+
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
+}
+
+// Function to delete a user by their ID
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
+}
+
+// Function to update user profile
+export async function updateUserProfile(
+  userId: number,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile> {
+  const birthdateValue = profileData.birthdate
+    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
+    : null;
+  const locationValue = profileData.location
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
+    : null;
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    UPDATE users
+    SET
+      full_name = coalesce(
+        ${profileData.fullName ?? 'null'},
+        full_name
+      ),
+      description = coalesce(
+        ${profileData.description ?? 'null'},
+        description
+      ),
+      interests = coalesce(
+        ${profileData.interests ?? 'null'},
+        interests
+      ),
+      profile_links = coalesce(
+        ${profileData.profileLinks ?? 'null'},
+        profile_links
+      ),
+      user_image = coalesce(
+        ${profileData.userImage ?? 'null'},
+        user_image
+      ),
+      location = coalesce(
+        ${locationValue}::geometry,
+        location
+      ),
+      birthdate = coalesce(
+        ${birthdateValue}::date,
+        birthdate
+      ),
+      profession = coalesce(
+        ${profileData.profession ?? 'null'},
+        profession
+      ),
+      updated_at = now()
+    WHERE
+      id = ${userId}
+    RETURNING
+      id,
+      username,
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  const updatedUser = users[0];
+
+  if (!updatedUser) {
+    throw new Error('Profile update failed');
+  }
+
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+export function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
+}
+
+----------------------------------------
+
+// migrations/00000-createUsersTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE EXTENSION if NOT EXISTS postgis
+    WITH
+      schema public;
+  `;
+
+  await sql`
+    CREATE TABLE users (
+      id serial PRIMARY KEY,
+      username varchar(255) NOT NULL UNIQUE,
+      email varchar(255) NOT NULL UNIQUE,
+      password_hash varchar(255) NOT NULL,
+      profile_id serial UNIQUE,
+      full_name text,
+      description text,
+      interests text,
+      profile_links text,
+      user_image varchar(255) NOT NULL,
+      location geometry (POINT, 4326),
+      birthdate date,
+      profession text,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      slug varchar(255) NOT NULL UNIQUE
+    )
+  `;
+
+  await sql`
+    CREATE
+    OR REPLACE function update_updated_at_column () returns trigger AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `;
+
+  await sql`
+    CREATE TRIGGER update_users_updated_at before
+    UPDATE ON users FOR each ROW
+    EXECUTE function update_updated_at_column ();
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
+  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
+  await sql`DROP TABLE IF EXISTS users`;
+  await sql`DROP EXTENSION if EXISTS postgis`;
+}
+
+----------------------------------------
+
+// migrations/00001-createSessionsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE sessions (
+      id serial PRIMARY KEY,
+      user_id int NOT NULL REFERENCES users (id),
+      token varchar(255) NOT NULL,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at timestamp NOT NULL
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE sessions`;
+}
+
+----------------------------------------
+
+// migrations/00002-createFollowsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE follows (
+      id serial PRIMARY KEY,
+      follower_id int NOT NULL REFERENCES users (id),
+      followed_id int NOT NULL REFERENCES users (id),
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE follows`;
+}
+
+----------------------------------------
+
+// migrations/00003-createPostsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE posts (
+      id serial PRIMARY KEY,
+      user_id int NOT NULL REFERENCES users (id),
+      icon varchar(1),
+      title varchar(255) NOT NULL,
+      content text NOT NULL,
+      category_id bigint,
+      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      slug varchar(255) NOT NULL UNIQUE
+    )
+  `;
+
+  await sql`
+    CREATE
+    OR REPLACE function update_posts_updated_at_column () returns trigger AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `;
+
+  await sql`
+    CREATE TRIGGER update_posts_updated_at before
+    UPDATE ON posts FOR each ROW
+    EXECUTE procedure update_posts_updated_at_column ();
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TRIGGER if EXISTS update_posts_updated_at ON posts`;
+  await sql`DROP FUNCTION if EXISTS update_posts_updated_at_column`;
+  await sql`DROP TABLE posts`;
+}
+
+----------------------------------------
+
+// migrations/00004-createcategoriesTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE categories (
+      id serial PRIMARY KEY,
+      category_name varchar(255) NOT NULL UNIQUE,
+      description text
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE categories`;
+}
+
+----------------------------------------
+
+// migrations/00005-createCommentsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE comments (
+      id serial PRIMARY KEY,
+      post_id int NOT NULL REFERENCES posts (id) ON DELETE cascade,
+      user_id int NOT NULL REFERENCES users (id) ON DELETE cascade,
+      content text NOT NULL,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await sql`
+    CREATE
+    OR REPLACE function update_comments_updated_at_column () returns trigger AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `;
+
+  await sql`
+    CREATE TRIGGER update_comments_updated_at before
+    UPDATE ON comments FOR each ROW
+    EXECUTE procedure update_comments_updated_at_column ();
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TRIGGER if EXISTS update_comments_updated_at ON comments`;
+  await sql`DROP FUNCTION if EXISTS update_comments_updated_at_column`;
+  await sql`DROP TABLE comments`;
+}
+
+----------------------------------------
+
+// migrations/00006-createPostsCategoriesTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE posts_categories (
+      id serial PRIMARY KEY,
+      post_id int NOT NULL REFERENCES posts (id),
+      category_id int NOT NULL REFERENCES categories (id)
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE posts_categories`;
+}
+
+----------------------------------------
+
+// migrations/00007-createUsersCategoriesTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE users_categories (
+      id serial PRIMARY KEY,
+      user_id int NOT NULL REFERENCES users (id),
+      category_id int NOT NULL REFERENCES categories (id)
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE users_categories`;
+}
+
+----------------------------------------
+
+// migrations/00008-createProfilesCommentsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE profile_comments (
+      id serial PRIMARY KEY,
+      profile_id int NOT NULL REFERENCES users (profile_id),
+      user_id int NOT NULL REFERENCES users (id),
+      content text NOT NULL,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE IF EXISTS profile_comments`;
+}
+
+----------------------------------------
+
+// migrations/00009-createPostsCommentsTable.ts:
+
+import { Sql } from 'postgres';
+
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE posts_comments (
+      id serial PRIMARY KEY,
+      profile_id bigint NOT NULL REFERENCES posts (id),
+      comment_id bigint NOT NULL REFERENCES comments (id),
+      commenter_id bigint NOT NULL REFERENCES users (id)
+    )
+  `;
+}
+
+export async function down(sql: Sql) {
+  await sql`DROP TABLE posts_comments`;
 }
 
 ----------------------------------------

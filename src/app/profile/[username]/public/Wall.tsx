@@ -197,23 +197,23 @@ export default function Wall({
           </div>
         ))}
       </div>
-      {isFollowing && (
-        <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-          <button
-            type="submit"
-            className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
-          >
-            Submit
-          </button>
-        </form>
-      )}
+      {/* {isFollowing && ( */}
+      <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
+        <textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="Add a comment"
+          required
+          className="w-full p-2 border border-gray-300 rounded-md"
+        />
+        <button
+          type="submit"
+          className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
+        >
+          Submit
+        </button>
+      </form>
+      {/* )} */}
     </div>
   );
 }

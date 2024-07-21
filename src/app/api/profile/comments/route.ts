@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../database/sessions';
 import {
   createProfileComment,
-  getCommentsByProfileId,
+  getCommentsByProfileUserId,
 } from '../../../../../database/comments';
 import { sql } from '../../../../../database/connect';
 
@@ -27,23 +27,6 @@ export async function POST(request: NextRequest) {
     if (!profileId || !content) {
       return NextResponse.json(
         { error: 'Profile ID and content are required' },
-        { status: 400 },
-      );
-    }
-
-    // Verify if the profileId exists in the profile comments table
-    const [profileExists] = await sql<{ id: number }[]>`
-      SELECT
-        id
-      FROM
-        profile_comments
-      WHERE
-        profile_id = ${Number(profileId)}
-    `;
-
-    if (!profileExists) {
-      return NextResponse.json(
-        { error: 'Profile ID does not exist' },
         { status: 400 },
       );
     }
@@ -75,6 +58,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const comments = await getCommentsByProfileId(parseInt(profileId, 10));
+  const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
   return NextResponse.json(comments);
 }
