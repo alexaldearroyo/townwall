@@ -1,18 +1,16 @@
-/* src/app/globals.css */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --foreground-color: #000000; /* Color del texto en modo claro y oscuro */
-  --background-color: #ffffff; /* Color de fondo en modo claro */
+  --foreground-color: #000000; /* Text color in light and dark mode */
+  --background-color: #f3f4f6; /* Background color in light mode */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-color: #000000; /* Color del texto en modo oscuro */
-    --background-color: #000000; /* Color de fondo en modo oscuro */
+    --foreground-color: #000000; /* Text color in dark mode */
+    --background-color: #1f2937; /* Background color in dark mode */
   }
 }
 
@@ -30,7 +28,7 @@ body {
 
 .dark body {
   color: #000000;
-  background-color: #000000;
+  background-color: #1f2937;
 }
 
 .leaflet-container {
