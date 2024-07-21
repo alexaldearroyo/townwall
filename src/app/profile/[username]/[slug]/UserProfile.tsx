@@ -25,7 +25,7 @@ export default function UserProfile({
   handleLogout: () => void;
 }) {
   return (
-    <div className="w-full lg:w-3/5 p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="w-full md:w-1/2 p-4 space-y-6">
       <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
         My Wall
       </h1>

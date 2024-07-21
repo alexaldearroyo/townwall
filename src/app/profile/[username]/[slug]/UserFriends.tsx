@@ -20,7 +20,7 @@ export default function UserFriends({
   };
 }) {
   return (
-    <div className="w-full p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="w-full p-4 space-y-6">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         Friends
       </h2>
@@ -29,7 +29,7 @@ export default function UserFriends({
           onClick={() =>
             (window.location.href = `/profile/${user.username}/following`)
           }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Followed Friends
         </button>
@@ -37,7 +37,7 @@ export default function UserFriends({
           onClick={() =>
             (window.location.href = `/profile/${user.username}/followers`)
           }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           My Followers
         </button>
@@ -48,7 +48,13 @@ export default function UserFriends({
       </h3>
       {!!user.location && (
         <div className="w-full flex justify-center">
-          <Map latitude={user.location.y} longitude={user.location.x} />
+          <div className="w-full max-w-lg">
+            <Map
+              latitude={user.location.y}
+              longitude={user.location.x}
+              height="300px"
+            />
+          </div>
         </div>
       )}
     </div>

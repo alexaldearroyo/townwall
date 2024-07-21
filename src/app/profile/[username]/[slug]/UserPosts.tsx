@@ -25,7 +25,7 @@ export default function UserPosts({
   handleNewPost: () => void;
 }) {
   return (
-    <div className="w-full p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800 lg:mt-[-16px]">
+    <div className="w-full md:w-1/2 p-4 space-y-6">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         Posts
       </h2>
