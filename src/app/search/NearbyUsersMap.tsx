@@ -17,8 +17,8 @@ const NearbyUsersMap: React.FC<NearbyUsersMapProps> = ({
   markers,
 }) => {
   return (
-    <div className="w-full p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+    <div className="w-full space-y-6">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         Nearby Users
       </h1>
       <div className="w-full h-96 mt-4">

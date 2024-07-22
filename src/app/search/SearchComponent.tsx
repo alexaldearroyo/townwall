@@ -36,8 +36,8 @@ export default function SearchComponent() {
   }
 
   return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+    <div className="w-full space-y-6">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         Search Users
       </h1>
       <form onSubmit={handleSearch} className="space-y-6">
