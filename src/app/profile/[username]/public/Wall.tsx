@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getCityAndCountry } from '../../../../../util/geocode';
 
-const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
+const Map = dynamic(() => import('../../../../components/MapComponent'), {
+  ssr: false,
+});
 
 type LocationType = {
   city: string;

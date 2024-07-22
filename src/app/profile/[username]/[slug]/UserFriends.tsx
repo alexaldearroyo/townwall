@@ -9,7 +9,12 @@ interface MapProps {
   height: string;
 }
 
-const Map = dynamic(() => import('../../../../components/Map'), { ssr: false });
+const MapComponent = dynamic(
+  () => import('../../../../components/MapComponent'),
+  {
+    ssr: false,
+  },
+);
 
 export default function UserFriends({
   user,
@@ -49,7 +54,7 @@ export default function UserFriends({
       {!!user.location && (
         <div className="w-full flex justify-center">
           <div className="w-full max-w-lg">
-            <Map
+            <MapComponent
               latitude={user.location.y}
               longitude={user.location.x}
               height="300px"

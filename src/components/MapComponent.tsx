@@ -20,7 +20,11 @@ const parseLocation = (location: string) => {
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ latitude, longitude, markers = [] }) => {
+const MapComponent: React.FC<MapProps> = ({
+  latitude,
+  longitude,
+  markers = [],
+}) => {
   return (
     <div
       style={{
@@ -43,7 +47,14 @@ const Map: React.FC<MapProps> = ({ latitude, longitude, markers = [] }) => {
                 key={marker.id}
                 position={[loc.latitude, loc.longitude] as [number, number]}
               >
-                <Popup>{marker.username}</Popup>
+                <Popup>
+                  <a
+                    href={`/profile/${marker.username}`}
+                    className="text-blue-500 hover:underline"
+                  >
+                    {marker.username}
+                  </a>
+                </Popup>
               </Marker>
             );
           }
@@ -54,4 +65,4 @@ const Map: React.FC<MapProps> = ({ latitude, longitude, markers = [] }) => {
   );
 };
 
-export default Map;
+export default MapComponent;

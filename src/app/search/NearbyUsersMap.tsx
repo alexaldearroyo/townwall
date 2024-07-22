@@ -3,7 +3,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-const Map = dynamic(() => import('../../components/Map'), { ssr: false });
+const MapComponent = dynamic(() => import('../../components/MapComponent'), {
+  ssr: false,
+});
 
 type NearbyUsersMapProps = {
   latitude: number;
@@ -21,8 +23,12 @@ const NearbyUsersMap: React.FC<NearbyUsersMapProps> = ({
       <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         Nearby Users
       </h1>
-      <div className="w-full h-96 mt-4">
-        <Map latitude={latitude} longitude={longitude} markers={markers} />
+      <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
+        <MapComponent
+          latitude={latitude}
+          longitude={longitude}
+          markers={markers}
+        />
       </div>
     </div>
   );
