@@ -173,7 +173,7 @@ export default function Wall({
         <div className="flex justify-center">
           <button
             onClick={handleFollow}
-            className={`w-3/4 h-10 px-4 text-white rounded-md ${
+            className={`w-1/2 h-10 px-4 text-white rounded-md ${
               isFollowing ? 'bg-red-600' : 'bg-indigo-600'
             }`}
           >
@@ -217,7 +217,7 @@ export default function Wall({
         <div className="flex justify-center">
           <button
             type="submit"
-            className="w-3/4 h-10 px-4 bg-indigo-600 text-white rounded-md"
+            className="w-1/2 h-10 px-4 bg-indigo-600 text-white rounded-md"
           >
             Submit
           </button>

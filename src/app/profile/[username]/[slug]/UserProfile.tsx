@@ -1,6 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
+};
 
 export default function UserProfile({
   user,
@@ -24,11 +34,34 @@ export default function UserProfile({
   error: string | null;
   handleLogout: () => void;
 }) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(
+          `/api/profile/comments?profileId=${user.id}`,
+        );
+        if (response.ok) {
+          const profileComments = await response.json();
+          setComments(profileComments);
+        } else {
+          setFetchError('Failed to fetch comments');
+        }
+      } catch (err) {
+        setFetchError('Failed to fetch comments');
+      }
+    };
+
+    fetchComments();
+  }, [user.id]);
+
   return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+    <div className="w-full space-y-4">
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         My Wall
-      </h1>
+      </h2>
       <div className="text-center mx-auto">
         <span className="text-9xl">{user.userImage}</span>
       </div>
@@ -87,15 +120,32 @@ export default function UserProfile({
           Sign Out
         </button>
       </div>
+      <hr className="my-8 border-gray-300 dark:border-gray-600" />
       <div className="w-full space-y-4">
         <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Comments by Friends
+          Comments
         </h2>
         <div className="space-y-2">
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No comments yet
-          </p>
-          {/* Puedes añadir más estructura para los comentarios aquí */}
+          {comments.length === 0 ? (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No comments yet
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+              >
+                <p className="text-gray-700 dark:text-gray-300">
+                  {comment.content}
+                </p>
+                <small className="text-gray-500 dark:text-gray-400">
+                  {new Date(comment.createdAt).toLocaleString()} by{' '}
+                  {comment.username}
+                </small>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
