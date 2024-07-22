@@ -25,20 +25,27 @@ export default function UserPosts({
   handleNewPost: () => void;
 }) {
   return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
+    <div className="w-full space-y-4">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Posts
+        My Posts
       </h2>
       <ul>
         {posts.length > 0 ? (
           posts.map((post) => (
             <li key={`post-${post.id}`} className="mb-4">
-              <Link
-                href={`/posts/${user.username}/${post.slug}`}
-                className="text-xl font-semibold text-blue-600 hover:underline"
-              >
-                {post.title}
-              </Link>
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                >
+                  {post.title}
+                </Link>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.createdAt
+                    ? new Date(post.createdAt).toLocaleDateString()
+                    : ''}
+                </span>
+              </div>
               <p className="text-gray-700 dark:text-gray-300">
                 {post.content.slice(0, 100)}...
               </p>
@@ -50,6 +57,7 @@ export default function UserPosts({
           </p>
         )}
       </ul>
+
       <div className="flex justify-center">
         <button
           onClick={handleNewPost}

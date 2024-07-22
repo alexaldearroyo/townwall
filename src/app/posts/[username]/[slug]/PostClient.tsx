@@ -55,7 +55,7 @@ export default function PostClient({ post }: { post: any }) {
           By{' '}
           <a
             href={`/profile/${post.author}/public`}
-            className="text-yellow-500 dark:text-yellow-400"
+            className="text-blue-700 dark:text-blue-400"
           >
             {post.author}
           </a>{' '}
@@ -84,7 +84,7 @@ export default function PostClient({ post }: { post: any }) {
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-indigo-600 dark:text-blue-400"
+                  className="text-blue-700 dark:text-blue-400"
                 >
                   {comment.username}
                 </a>

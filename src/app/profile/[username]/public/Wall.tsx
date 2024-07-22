@@ -205,7 +205,7 @@ export default function Wall({
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-indigo-600 dark:text-blue-400"
+                  className="text-blue-700 dark:text-blue-400"
                 >
                   {comment.username}
                 </a>

@@ -141,7 +141,12 @@ export default function UserProfile({
                 </p>
                 <small className="text-gray-500 dark:text-gray-400">
                   {new Date(comment.createdAt).toLocaleString()} by{' '}
-                  {comment.username}
+                  <a
+                    href={`/profile/${comment.username}/public`}
+                    className="text-blue-700 dark:text-blue-400"
+                  >
+                    {comment.username}
+                  </a>
                 </small>
               </div>
             ))
