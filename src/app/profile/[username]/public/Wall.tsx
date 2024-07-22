@@ -170,13 +170,19 @@ export default function Wall({
         </p>
       )}
       {!!loggedInUserId && loggedInUserId !== user.id && (
-        <button
-          onClick={handleFollow}
-          className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
-        >
-          {isFollowing ? 'Unfollow' : 'Follow'}
-        </button>
+        <div className="flex justify-center">
+          <button
+            onClick={handleFollow}
+            className={`w-3/4 h-10 px-4 text-white rounded-md ${
+              isFollowing ? 'bg-red-600' : 'bg-indigo-600'
+            }`}
+          >
+            {isFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        </div>
       )}
+      <hr className="my-8 border-gray-300 dark:border-gray-600" />
+
       {!!error && <p className="text-red-500 text-center">{error}</p>}
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
         Comments
@@ -199,19 +205,23 @@ export default function Wall({
       </div>
       {/* {isFollowing && ( */}
       <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment"
-          required
-          className="w-full p-2 border border-gray-300 rounded-md"
-        />
-        <button
-          type="submit"
-          className="w-full h-10 px-4 bg-indigo-600 text-white rounded-md"
-        >
-          Submit
-        </button>
+        <div className="flex justify-center w-full">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="flex justify-center">
+          <button
+            type="submit"
+            className="w-3/4 h-10 px-4 bg-indigo-600 text-white rounded-md"
+          >
+            Submit
+          </button>
+        </div>
       </form>
       {/* )} */}
     </div>
