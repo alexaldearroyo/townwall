@@ -203,13 +203,17 @@ export default function Wall({
               </p>
               <small className="text-gray-500 dark:text-gray-400">
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
-                {comment.username}
+                <a
+                  href={`/profile/${comment.username}/public`}
+                  className="text-indigo-600 dark:text-blue-400"
+                >
+                  {comment.username}
+                </a>
               </small>
             </div>
           ))
         )}
       </div>
-      {/* {isFollowing && ( */}
       <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
         <div className="flex justify-center w-full">
           <textarea
@@ -229,7 +233,6 @@ export default function Wall({
           </button>
         </div>
       </form>
-      {/* )} */}
     </div>
   );
 }

@@ -31,9 +31,5 @@ export default function FollowingPage() {
     fetchFollowing();
   }, []);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <FollowingList following={following} error={error} />
-    </div>
-  );
+  return <FollowingList following={following} error={error} />;
 }

@@ -55,7 +55,7 @@ export default function PostClient({ post }: { post: any }) {
           By{' '}
           <a
             href={`/profile/${post.author}/public`}
-            className="text-indigo-600"
+            className="text-yellow-500 dark:text-yellow-400"
           >
             {post.author}
           </a>{' '}
@@ -68,24 +68,6 @@ export default function PostClient({ post }: { post: any }) {
         <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
           Comments
         </h2>
-
-        <form onSubmit={handleCommentSubmit} className="space-y-4">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-          <div className="flex justify-center">
-            <button
-              type="submit"
-              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Submit
-            </button>
-          </div>
-        </form>
 
         {!!error && <p className="text-red-500 text-center">{error}</p>}
 
@@ -110,6 +92,23 @@ export default function PostClient({ post }: { post: any }) {
             </div>
           ))}
         </div>
+        <form onSubmit={handleCommentSubmit} className="space-y-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Submit
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
