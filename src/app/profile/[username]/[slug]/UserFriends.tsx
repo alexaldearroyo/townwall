@@ -49,17 +49,15 @@ export default function UserFriends({
       </div>
 
       <h3 className="text-lg text-center text-gray-900 dark:text-white">
-        Nearby friends:
+        Nearby friends
       </h3>
       {!!user.location && (
-        <div className="w-full flex justify-center">
-          <div className="w-full rounded-lg max-w-lg">
-            <MapComponent
-              latitude={user.location.y}
-              longitude={user.location.x}
-              height="300px"
-            />
-          </div>
+        <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
+          <MapComponent
+            latitude={user.location.y}
+            longitude={user.location.x}
+            // height="300px"
+          />
         </div>
       )}
     </div>

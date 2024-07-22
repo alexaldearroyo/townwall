@@ -124,7 +124,7 @@ export default function Wall({
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-6">
       <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         {user.username}'s Wall
       </h1>
