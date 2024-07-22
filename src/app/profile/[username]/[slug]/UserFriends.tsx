@@ -53,7 +53,7 @@ export default function UserFriends({
       </h3>
       {!!user.location && (
         <div className="w-full flex justify-center">
-          <div className="w-full max-w-lg">
+          <div className="w-full rounded-lg max-w-lg">
             <MapComponent
               latitude={user.location.y}
               longitude={user.location.x}

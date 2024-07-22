@@ -84,7 +84,7 @@ export default function PostClient({ post }: { post: any }) {
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-blue-400"
+                  className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
                 >
                   {comment.username}
                 </a>

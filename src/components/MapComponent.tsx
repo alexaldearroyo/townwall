@@ -50,7 +50,7 @@ const MapComponent: React.FC<MapProps> = ({
                 <Popup>
                   <a
                     href={`/profile/${marker.username}`}
-                    className="text-blue-500 hover:underline"
+                    className="text-blue-500 hover:text-indigo-800"
                   >
                     {marker.username}
                   </a>
