@@ -57,10 +57,10 @@ export default function PublicPageClient({
 
   return (
     <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 py-4 px-0 flex justify-center">
+      <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
         <Wall user={user} loggedInUserId={loggedInUserId} />
       </div>
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow dark:bg-gray-800 py-4 px-0 flex justify-center">
+      <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
         <Posts posts={posts} username={user.username} />
       </div>
     </div>

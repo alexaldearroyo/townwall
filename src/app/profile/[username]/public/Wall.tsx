@@ -122,8 +122,8 @@ export default function Wall({
   };
 
   return (
-    <div className="w-full md:w-1/2 p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+    <div className="w-full space-y-4">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         {user.username}'s Wall
       </h1>
       <div className="text-center mx-auto">
@@ -173,7 +173,7 @@ export default function Wall({
         <div className="flex justify-center">
           <button
             onClick={handleFollow}
-            className={`w-1/2 h-10 px-4 text-white rounded-md ${
+            className={`w-0.5/2 h-10 px-4 text-white rounded-md ${
               isFollowing ? 'bg-red-600' : 'bg-indigo-600'
             }`}
           >
@@ -187,21 +187,27 @@ export default function Wall({
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
         Comments
       </h2>
-      <div className="space-y-4">
-        {comments.map((comment) => (
-          <div
-            key={comment.id}
-            className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-          >
-            <p className="text-gray-700 dark:text-gray-300">
-              {comment.content}
-            </p>
-            <small className="text-gray-500 dark:text-gray-400">
-              {new Date(comment.createdAt).toLocaleString()} by{' '}
-              {comment.username}
-            </small>
-          </div>
-        ))}
+      <div className="space-y-2">
+        {comments.length === 0 ? (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            No comments yet
+          </p>
+        ) : (
+          comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500 dark:text-gray-400">
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                {comment.username}
+              </small>
+            </div>
+          ))
+        )}
       </div>
       {/* {isFollowing && ( */}
       <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
@@ -217,7 +223,7 @@ export default function Wall({
         <div className="flex justify-center">
           <button
             type="submit"
-            className="w-1/2 h-10 px-4 bg-indigo-600 text-white rounded-md"
+            className="w-0.5/2 h-10 px-4 bg-indigo-600 text-white rounded-md"
           >
             Submit
           </button>
