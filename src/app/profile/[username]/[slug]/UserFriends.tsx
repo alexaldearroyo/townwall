@@ -16,14 +16,32 @@ const MapComponent = dynamic(
   },
 );
 
+async function fetchFriends(userId: number) {
+  const response = await fetch(`/api/friends?userId=${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch friends');
+  }
+  const data = await response.json();
+  return data;
+}
+
 export default function UserFriends({
   user,
 }: {
   user: {
+    id: number;
     username: string;
     location?: { x: number; y: number } | null;
   };
 }) {
+  const [friends, setFriends] = React.useState<
+    { id: number; username: string; location: string }[]
+  >([]);
+
+  React.useEffect(() => {
+    fetchFriends(user.id).then(setFriends).catch(console.error);
+  }, [user.id]);
+
   return (
     <div className="w-full space-y-6">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
@@ -54,9 +72,9 @@ export default function UserFriends({
       {!!user.location && (
         <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
           <MapComponent
-            latitude={user.location.y}
-            longitude={user.location.x}
-            // height="300px"
+            latitude={user.location.y || 0}
+            longitude={user.location.x || 0}
+            markers={friends}
           />
         </div>
       )}

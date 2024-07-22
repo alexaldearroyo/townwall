@@ -99,3 +99,35 @@ export async function getFollowingUsers(userId: number) {
       follows.follower_id = ${userId}
   `;
 }
+
+export async function getFollowersWithLocation(userId: number) {
+  return await sql<
+    { id: number; username: string; location: unknown | null }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      st_astext (users.location) AS location
+    FROM
+      users
+      JOIN follows ON users.id = follows.follower_id
+    WHERE
+      follows.followed_id = ${userId}
+  `;
+}
+
+export async function getFollowingWithLocation(userId: number) {
+  return await sql<
+    { id: number; username: string; location: unknown | null }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      st_astext (users.location) AS location
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
+}
