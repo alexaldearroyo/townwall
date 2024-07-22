@@ -20,9 +20,9 @@ export default function UserFriends({
   };
 }) {
   return (
-    <div className="w-full p-4 space-y-6">
+    <div className="w-full space-y-6">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Friends
+        My Friends
       </h2>
       <div className="flex space-x-4 justify-center">
         <button

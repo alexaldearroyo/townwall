@@ -58,7 +58,7 @@ export default function UserProfile({
   }, [user.id]);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-6">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         My Wall
       </h2>
