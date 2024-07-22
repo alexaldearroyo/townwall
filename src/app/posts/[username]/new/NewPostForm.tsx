@@ -59,7 +59,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
   }
 
   return (
-    <div className="flex items-center justify-center mt-40 bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center mt-20 bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           Create a New Post

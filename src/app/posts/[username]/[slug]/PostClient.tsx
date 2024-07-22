@@ -46,22 +46,27 @@ export default function PostClient({ post }: { post: any }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 pt-8">
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           {post.title}
         </h1>
         <p className="text-center text-gray-600 dark:text-gray-400">
-          By {post.author} on {new Date(post.createdAt).toLocaleDateString()}
+          By{' '}
+          <a
+            href={`/profile/${post.author}/public`}
+            className="text-indigo-600"
+          >
+            {post.author}
+          </a>{' '}
+          on {new Date(post.createdAt).toLocaleDateString()}
         </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          {post.content}
-        </p>
+        <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
 
         <hr className="my-4 border-gray-300 dark:border-gray-600" />
 
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Comments:
+        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
+          Comments
         </h2>
 
         <form onSubmit={handleCommentSubmit} className="space-y-4">
@@ -75,7 +80,7 @@ export default function PostClient({ post }: { post: any }) {
           <div className="flex justify-center">
             <button
               type="submit"
-              className="w-1/2 py-2 px-4 bg-indigo-600 text-white rounded-md"
+              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Submit
             </button>
@@ -86,11 +91,21 @@ export default function PostClient({ post }: { post: any }) {
 
         <div className="space-y-4">
           {comments.map((comment) => (
-            <div key={comment.id} className="p-4 bg-gray-100 rounded-md">
-              <p className="text-gray-700">{comment.content}</p>
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
               <small className="text-gray-500">
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
-                {comment.username}
+                <a
+                  href={`/profile/${comment.username}/public`}
+                  className="text-indigo-600 dark:text-blue-400"
+                >
+                  {comment.username}
+                </a>
               </small>
             </div>
           ))}
