@@ -28,6 +28,7 @@ const NearbyUsersMap: React.FC<NearbyUsersMapProps> = ({
           latitude={latitude}
           longitude={longitude}
           markers={markers}
+          zoom={12}
         />
       </div>
     </div>

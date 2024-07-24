@@ -10,6 +10,7 @@ type MapProps = {
   latitude: number;
   longitude: number;
   markers?: { id: number; username: string; location: string }[];
+  zoom?: number;
 };
 
 const parseLocation = (location: string) => {
@@ -24,6 +25,7 @@ const MapComponent: React.FC<MapProps> = ({
   latitude,
   longitude,
   markers = [],
+  zoom = 13,
 }) => {
   return (
     <div
@@ -34,7 +36,7 @@ const MapComponent: React.FC<MapProps> = ({
         zIndex: 1,
       }}
     >
-      <MapContainer center={[latitude, longitude]} zoom={13}>
+      <MapContainer center={[latitude, longitude]} zoom={zoom}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <Marker position={[latitude, longitude] as [number, number]}>
           <Popup>Your Location</Popup>
