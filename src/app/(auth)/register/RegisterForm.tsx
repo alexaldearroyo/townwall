@@ -64,7 +64,17 @@ export default function RegisterForm() {
           Sign Up
         </h1>
         <form onSubmit={handleRegister} className="space-y-6">
-          {!!error && <p className="text-red-500">{error}</p>}
+          {!!error && (
+            <p
+              className={
+                error === 'User registered successfully'
+                  ? 'text-green-700 text-center'
+                  : 'text-red-500 text-center'
+              }
+            >
+              {error}
+            </p>
+          )}
           <div>
             <label
               htmlFor="username"
