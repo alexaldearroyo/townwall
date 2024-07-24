@@ -49,7 +49,7 @@ const MapComponent: React.FC<MapProps> = ({
               >
                 <Popup>
                   <a
-                    href={`/profile/${marker.username}`}
+                    href={`/profile/${marker.username}/public`}
                     className="text-blue-500 hover:text-indigo-800"
                   >
                     {marker.username}

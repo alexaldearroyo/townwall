@@ -15,11 +15,6 @@ export default function EditProfileForm({ user }: { user: any }) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isNaN(Date.parse(formData.birthdate))) {
-      setError('Invalid birthdate format');
-      return;
-    }
-
     try {
       const response = await fetch('/api/profile', {
         method: 'POST',
