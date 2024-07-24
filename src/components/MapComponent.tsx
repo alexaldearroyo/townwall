@@ -25,7 +25,7 @@ const MapComponent: React.FC<MapProps> = ({
   latitude,
   longitude,
   markers = [],
-  zoom = 13,
+  zoom = 12,
 }) => {
   return (
     <div
@@ -39,7 +39,7 @@ const MapComponent: React.FC<MapProps> = ({
       <MapContainer center={[latitude, longitude]} zoom={zoom}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <Marker position={[latitude, longitude] as [number, number]}>
-          <Popup>Your Location</Popup>
+          <Popup>My Location</Popup>
         </Marker>
         {markers.map((marker) => {
           const loc = parseLocation(marker.location);
