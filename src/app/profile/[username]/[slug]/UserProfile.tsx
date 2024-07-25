@@ -67,36 +67,50 @@ export default function UserProfile({
         <span className="text-9xl">{user.userImage}</span>
       </div>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-blue-700 dark:text-blue-400">Username: </span>
+        <span className="text-blue-900 font-bold dark:text-blue-400">
+          Username:{' '}
+        </span>
         {user.username}
       </p>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-blue-700 dark:text-blue-400">Email: </span>
+        <span className="text-blue-900 font-bold dark:text-blue-400">
+          Email:{' '}
+        </span>
         {user.email}
       </p>
       {!!user.fullName && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Full Name: </span>
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Full Name:{' '}
+          </span>
           {user.fullName}
         </p>
       )}
       {!!user.description && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">
+          <span className="text-blue-900 font-bold dark:text-blue-400">
             Description:{' '}
           </span>
           {user.description}
         </p>
       )}
       {!!user.interests && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Interests:
-          {user.interests}
-        </p>
+        <div className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Interests:{' '}
+          </span>
+          {user.interests.split(',').map((interest, index, arr) => (
+            <span key={`interest-${interest}`} className="mr-2">
+              {interest.trim()}
+              {index < arr.length - 1 ? ',' : ''}
+            </span>
+          ))}
+        </div>
       )}
+
       {!!user.profileLinks && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">
+          <span className="text-blue-900 font-bold dark:text-blue-400">
             Profile Links:{' '}
           </span>
           {user.profileLinks}
@@ -104,19 +118,25 @@ export default function UserProfile({
       )}
       {!!location && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Location: </span>
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Location:{' '}
+          </span>
           {location.city}, {location.country}
         </p>
       )}
       {!!user.birthdate && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Birthdate: </span>
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Birthdate:{' '}
+          </span>
           {user.birthdate}
         </p>
       )}
       {!!user.profession && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Profession: </span>
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Profession:{' '}
+          </span>
           {user.profession}
         </p>
       )}
@@ -160,7 +180,7 @@ export default function UserProfile({
                   {new Date(comment.createdAt).toLocaleString()} by{' '}
                   <a
                     href={`/profile/${comment.username}/public`}
-                    className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                    className="text-blue-900 font-bold dark:text-blue-400 hover:text-indigo-800"
                   >
                     {comment.username}
                   </a>
