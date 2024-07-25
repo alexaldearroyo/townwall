@@ -1,115 +1,1096 @@
-// src/components/MapComponent.tsx:
+// migrations/00000-createUsersTable.ts:
 
-'use client';
+import { Sql } from 'postgres';
 
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-defaulticon-compatibility';
-import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
+export async function up(sql: Sql) {
+  await sql`
+    CREATE EXTENSION if NOT EXISTS postgis
+    WITH
+      schema public;
+  `;
 
-type MapProps = {
-  latitude: number;
-  longitude: number;
-  markers?: { id: number; username: string; location: string }[];
-};
+  await sql`
+    CREATE TABLE users (
+      id serial PRIMARY KEY,
+      username varchar(255) NOT NULL UNIQUE,
+      email varchar(255) NOT NULL UNIQUE,
+      password_hash varchar(255) NOT NULL,
+      profile_id serial UNIQUE,
+      full_name text,
+      description text,
+      interests text,
+      profile_links text,
+      user_image varchar(255) NOT NULL,
+      location geometry (POINT, 4326),
+      birthdate date,
+      profession text,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
+      slug varchar(255) NOT NULL UNIQUE
+    )
+  `;
 
-const parseLocation = (location: string) => {
-  const match = location.match(/POINT\(([^ ]+) ([^ ]+)\)/);
-  if (match && match[1] && match[2]) {
-    return { longitude: parseFloat(match[1]), latitude: parseFloat(match[2]) };
-  }
-  return null;
-};
+  await sql`
+    CREATE
+    OR REPLACE function update_updated_at_column () returns trigger AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `;
 
-const MapComponent: React.FC<MapProps> = ({
-  latitude,
-  longitude,
-  markers = [],
-}) => {
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: '400px',
-        position: 'relative',
-        zIndex: 1,
-      }}
-    >
-      <MapContainer center={[latitude, longitude]} zoom={13}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <Marker position={[latitude, longitude] as [number, number]}>
-          <Popup>Your Location</Popup>
-        </Marker>
-        {markers.map((marker) => {
-          const loc = parseLocation(marker.location);
-          if (loc) {
-            return (
-              <Marker
-                key={marker.id}
-                position={[loc.latitude, loc.longitude] as [number, number]}
-              >
-                <Popup>
-                  <a
-                    href={`/profile/${marker.username}/public`}
-                    className="text-blue-500 hover:text-indigo-800"
-                  >
-                    {marker.username}
-                  </a>
-                </Popup>
-              </Marker>
-            );
-          }
-          return null;
-        })}
-      </MapContainer>
-    </div>
-  );
-};
+  await sql`
+    CREATE TRIGGER update_users_updated_at before
+    UPDATE ON users FOR each ROW
+    EXECUTE function update_updated_at_column ();
+  `;
+}
 
-export default MapComponent;
+export async function down(sql: Sql) {
+  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
+  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
+  await sql`DROP TABLE IF EXISTS users`;
+  await sql`DROP EXTENSION if EXISTS postgis`;
+}
 
 ----------------------------------------
 
-// src/app/search/NearbyUsersMap.tsx:
+// database/users.ts:
+
+import { sql } from './connect';
+import bcrypt from 'bcrypt';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
+export type User = {
+  id: number;
+  username: string;
+  passwordHash: string;
+  userImage: string | null;
+  email: string;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  location?: { x: number; y: number } | null | unknown;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  description: string | null;
+  interests: string | null;
+  profileLinks: string | null;
+  userImage: string | null;
+  location: { x: number; y: number } | null;
+  birthdate: Date | null;
+  profession: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export async function createUser(
+  username: string,
+  password: string,
+  email: string,
+  profileId: number,
+  slug: string,
+  location: { x: number; y: number },
+): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
+        username,
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug,
+        location
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
+
+  const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
+  return user;
+}
+
+export async function getUserByUsername(
+  username: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${username}
+  `;
+
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}
+
+// Function to get a user by their ID
+export async function getUserById(id: number): Promise<User> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      id = ${id}
+  `;
+
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
+}
+
+// Function to delete a user by their ID
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
+}
+
+// Function to update user profile
+export async function updateUserProfile(
+  userId: number,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile> {
+  const birthdateValue = profileData.birthdate
+    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
+    : null;
+  const locationValue = profileData.location
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
+    : null;
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    UPDATE users
+    SET
+      full_name = coalesce(
+        ${profileData.fullName ?? 'null'},
+        full_name
+      ),
+      description = coalesce(
+        ${profileData.description ?? 'null'},
+        description
+      ),
+      interests = coalesce(
+        ${profileData.interests ?? 'null'},
+        interests
+      ),
+      profile_links = coalesce(
+        ${profileData.profileLinks ?? 'null'},
+        profile_links
+      ),
+      user_image = coalesce(
+        ${profileData.userImage ?? 'null'},
+        user_image
+      ),
+      location = coalesce(
+        ${locationValue}::geometry,
+        location
+      ),
+      birthdate = coalesce(
+        ${birthdateValue}::date,
+        birthdate
+      ),
+      profession = coalesce(
+        ${profileData.profession ?? 'null'},
+        profession
+      ),
+      updated_at = now()
+    WHERE
+      id = ${userId}
+    RETURNING
+      id,
+      username,
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  const updatedUser = users[0];
+
+  if (!updatedUser) {
+    throw new Error('Profile update failed');
+  }
+
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+export function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/profile/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { z } from 'zod';
+import { NextRequest } from 'next/server';
+
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  description: z.string().optional(),
+  interests: z.string().optional(),
+  profileLinks: z.string().optional(),
+  userImage: z.string().optional(),
+  // location: z.string().optional(),
+  birthdate: z.string().optional(),
+  profession: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const result = profileSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const updatedUser = await updateUserProfile(
+      session.userId,
+      result.data as Partial<UserProfile>,
+    );
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+    if (!user) {
+      return NextResponse.json(
+        { errors: [{ message: 'User not found' }] },
+        { status: 404 },
+      );
+    }
+
+    console.log(user);
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/users/username/[username]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserByUsername } from '../../../../../../database/users';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { username: string } },
+) {
+  const { username } = params;
+
+  try {
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    return NextResponse.json(user);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PrivatePageClient from './PrivatePageClient';
+import Link from 'next/link';
+
+export default async function ProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+  const loggedInUserId = session ? session.userId : null;
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  if (session.userId !== user.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Access denied</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/UserProfile.tsx:
 
 'use client';
 
-import React from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect } from 'react';
 
-const MapComponent = dynamic(() => import('../../components/MapComponent'), {
-  ssr: false,
-});
-
-type NearbyUsersMapProps = {
-  latitude: number;
-  longitude: number;
-  markers: { id: number; username: string; location: string }[];
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
 };
 
-const NearbyUsersMap: React.FC<NearbyUsersMapProps> = ({
-  latitude,
-  longitude,
-  markers,
-}) => {
+export default function UserProfile({
+  user,
+  location,
+  error,
+  handleLogout,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  location: { city: string; country: string } | null;
+  error: string | null;
+  handleLogout: () => void;
+}) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(
+          `/api/profile/comments?profileId=${user.id}`,
+        );
+        if (response.ok) {
+          const profileComments = await response.json();
+          setComments(profileComments);
+        } else {
+          setFetchError('Failed to fetch comments');
+        }
+      } catch (err) {
+        setFetchError('Failed to fetch comments');
+      }
+    };
+
+    fetchComments();
+  }, [user.id]);
+
   return (
     <div className="w-full space-y-6">
-      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Nearby Users
-      </h1>
-      <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
-        <MapComponent
-          latitude={latitude}
-          longitude={longitude}
-          markers={markers}
-        />
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        My Wall
+      </h2>
+      <div className="text-center mx-auto">
+        <span className="text-9xl">{user.userImage}</span>
+      </div>
+      <p className="text-center text-gray-700 dark:text-gray-300">
+        Username: {user.username}
+      </p>
+      {!!user.fullName && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Full Name: {user.fullName}
+        </p>
+      )}
+      {!!user.description && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Description: {user.description}
+        </p>
+      )}
+      {!!user.interests && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Interests: {user.interests}
+        </p>
+      )}
+      {!!user.profileLinks && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Links: {user.profileLinks}
+        </p>
+      )}
+      {!!location && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Location: {location.city}, {location.country}
+        </p>
+      )}
+      {!!user.birthdate && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Birthdate: {user.birthdate}
+        </p>
+      )}
+      {!!user.profession && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          Profession: {user.profession}
+        </p>
+      )}
+      {!!error && <p className="text-red-500 text-center">{error}</p>}
+      <div className="flex space-x-4 justify-center">
+        <button
+          onClick={() =>
+            (window.location.href = `/profile/${user.username}/edit`)
+          }
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Edit Profile
+        </button>
+        <button
+          onClick={handleLogout}
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Sign Out
+        </button>
+      </div>
+      <hr className="my-8 border-gray-300 dark:border-gray-600" />
+      <div className="w-full space-y-4">
+        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Comments
+        </h2>
+        <div className="space-y-2">
+          {comments.length === 0 ? (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No comments yet
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+              >
+                <p className="text-gray-700 dark:text-gray-300">
+                  {comment.content}
+                </p>
+                <small className="text-gray-500 dark:text-gray-400">
+                  {new Date(comment.createdAt).toLocaleString()} by{' '}
+                  <a
+                    href={`/profile/${comment.username}/public`}
+                    className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                  >
+                    {comment.username}
+                  </a>
+                </small>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
-};
+}
 
-export default NearbyUsersMap;
+----------------------------------------
+
+// src/app/profile/[username]/edit/page.tsx:
+
+// src/app/profile/edit/page.tsx
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserById } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import EditProfileForm from './EditProfileForm';
+
+export default async function EditProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  const userProfile = {
+    username: user.username,
+    fullName: user.fullName || '',
+    description: user.description || '',
+    interests: user.interests || '',
+    profileLinks: user.profileLinks || '',
+    userImage: user.userImage || '',
+    location: user.location || '',
+    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
+    profession: user.profession || '',
+  };
+
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <EditProfileForm user={userProfile} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/edit/EditProfileForm.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+  }, [user]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setFormData(updatedUser.user);
+        router.push(
+          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
+        );
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      const response = await fetch('/api/delete', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        router.push('/register');
+      } else {
+        throw new Error('Failed to delete user');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const { name, value } = event.target;
+    setFormData((prevData: any) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }
+
+  return (
+    <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Edit My Profile
+        </h1>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-800 p-6 rounded-md mx-auto"
+        >
+          <div>
+            <label
+              htmlFor="fullName"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Full Name
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder={
+                formData.description ? '' : 'Enter a description of yourself'
+              }
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="interests"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Interests
+            </label>
+            <input
+              id="interests"
+              name="interests"
+              value={formData.interests}
+              onChange={handleChange}
+              placeholder={formData.interests ? '' : 'Enter your interests'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profileLinks"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Personal Links
+            </label>
+            <input
+              id="profileLinks"
+              name="profileLinks"
+              value={formData.profileLinks}
+              onChange={handleChange}
+              placeholder={
+                formData.profileLinks ? '' : 'Enter your personal links'
+              }
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          {/* <div>
+            <label
+              htmlFor="userImage"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Picture URL
+            </label>
+            <input
+              id="userImage"
+              name="userImage"
+              value={formData.userImage}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div> */}
+          <div>
+            <label
+              htmlFor="birthdate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Birth Date
+            </label>
+            <input
+              id="birthdate"
+              name="birthdate"
+              type="date"
+              value={formData.birthdate}
+              onChange={handleChange}
+              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profession"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Profession
+            </label>
+            <input
+              id="profession"
+              name="profession"
+              value={formData.profession}
+              onChange={handleChange}
+              placeholder={formData.profession ? '' : 'Enter your profession'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
+          </div>
+          <div className="flex justify-center space-x-4">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete User
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 ----------------------------------------
 

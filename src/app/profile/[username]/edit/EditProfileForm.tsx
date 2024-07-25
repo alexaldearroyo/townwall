@@ -1,11 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
 
 export default function EditProfileForm({ user }: { user: any }) {
   const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -64,12 +83,47 @@ export default function EditProfileForm({ user }: { user: any }) {
     }));
   }
 
+  function handleEmojiClick() {
+    setShowEmojiPicker(!showEmojiPicker);
+  }
+
+  function handleEmojiSelect(emoji: string) {
+    setFormData((prevData: any) => ({
+      ...prevData,
+      userImage: emoji,
+    }));
+    setShowEmojiPicker(false);
+  }
+
   return (
     <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           Edit My Profile
         </h1>
+        <div className="text-center">
+          <button
+            className="text-9xl cursor-pointer"
+            onClick={handleEmojiClick}
+            tabIndex={0}
+          >
+            {formData.userImage}
+          </button>
+          <p className="text-gray-500 text-sm">Click on image to change</p>
+          {showEmojiPicker && (
+            <div className="mt-2 flex flex-wrap justify-center space-x-2">
+              {animalEmojis.map((emoji) => (
+                <button
+                  key={`emoji-${emoji}`}
+                  className="text-2xl cursor-pointer"
+                  onClick={() => handleEmojiSelect(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <form
           onSubmit={handleSubmit}
@@ -143,21 +197,6 @@ export default function EditProfileForm({ user }: { user: any }) {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             />
           </div>
-          {/* <div>
-            <label
-              htmlFor="userImage"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Picture URL
-            </label>
-            <input
-              id="userImage"
-              name="userImage"
-              value={formData.userImage}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div> */}
           <div>
             <label
               htmlFor="birthdate"
