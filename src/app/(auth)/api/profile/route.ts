@@ -49,10 +49,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const updatedUser = await updateUserProfile(
-      session.userId,
-      result.data as Partial<UserProfile>,
-    );
+    const interestsArray = result.data.interests
+      ? JSON.parse(result.data.interests)
+      : [];
+    const updatedUser = await updateUserProfile(session.userId, {
+      ...result.data,
+      interests: interestsArray,
+    } as Partial<UserProfile>);
 
     return NextResponse.json({ user: updatedUser });
   } catch (error) {

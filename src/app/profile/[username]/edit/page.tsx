@@ -1,9 +1,7 @@
-// src/app/profile/edit/page.tsx
-
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserById } from '../../../../../database/users';
 import { getSessionByToken } from '../../../../../database/sessions';
+import { getUserById } from '../../../../../database/users';
 import EditProfileForm from './EditProfileForm';
 
 export default async function EditProfilePage() {
@@ -32,6 +30,7 @@ export default async function EditProfilePage() {
 
   const userProfile = {
     username: user.username,
+    email: user.email,
     fullName: user.fullName || '',
     description: user.description || '',
     interests: user.interests || '',

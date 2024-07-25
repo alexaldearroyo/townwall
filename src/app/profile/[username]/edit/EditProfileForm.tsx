@@ -25,10 +25,13 @@ export default function EditProfileForm({ user }: { user: any }) {
   const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [newInterest, setNewInterest] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     setFormData(user);
+    setInterests(user.interests || []);
   }, [user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -37,7 +40,10 @@ export default function EditProfileForm({ user }: { user: any }) {
     try {
       const response = await fetch('/api/profile', {
         method: 'POST',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          interests: JSON.stringify(interests),
+        }),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -93,6 +99,40 @@ export default function EditProfileForm({ user }: { user: any }) {
       userImage: emoji,
     }));
     setShowEmojiPicker(false);
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+    });
+  }
+
+  async function handleAddInterest() {
+    const titleCaseInterest = toTitleCase(newInterest);
+
+    if (
+      newInterest &&
+      interests.length < 7 &&
+      !interests.includes(titleCaseInterest)
+    ) {
+      const response = await fetch('/api/interests', {
+        method: 'POST',
+        body: JSON.stringify({ categoryName: titleCaseInterest }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInterests(data.categories.map((cat: any) => cat.categoryName));
+        setNewInterest('');
+      } else {
+        setError('Failed to add interest');
+      }
+    } else if (interests.includes(titleCaseInterest)) {
+      setError('Interest already added');
+    }
   }
 
   return (
@@ -170,14 +210,33 @@ export default function EditProfileForm({ user }: { user: any }) {
             >
               Interests
             </label>
-            <input
-              id="interests"
-              name="interests"
-              value={formData.interests}
-              onChange={handleChange}
-              placeholder={formData.interests ? '' : 'Enter your interests'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
+            <div className="flex space-x-2">
+              <input
+                id="newInterest"
+                name="newInterest"
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                placeholder="Add a new interest"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddInterest}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Add
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {interests.map((interest) => (
+                <span
+                  key={interest}
+                  className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
           </div>
           <div>
             <label

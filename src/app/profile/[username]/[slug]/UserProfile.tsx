@@ -104,19 +104,19 @@ export default function UserProfile({
       )}
       {!!location && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Location:</span>
+          <span className="text-blue-700 dark:text-blue-400">Location: </span>
           {location.city}, {location.country}
         </p>
       )}
       {!!user.birthdate && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Birthdate:</span>
+          <span className="text-blue-700 dark:text-blue-400">Birthdate: </span>
           {user.birthdate}
         </p>
       )}
       {!!user.profession && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-700 dark:text-blue-400">Profession:</span>
+          <span className="text-blue-700 dark:text-blue-400">Profession: </span>
           {user.profession}
         </p>
       )}

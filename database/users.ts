@@ -320,7 +320,6 @@ export async function getUserById(id: number): Promise<User> {
   return user;
 }
 
-// Function to delete a user by their ID
 export async function deleteUserById(id: number): Promise<void> {
   await sql`
     DELETE FROM users
@@ -329,7 +328,6 @@ export async function deleteUserById(id: number): Promise<void> {
   `;
 }
 
-// Function to update user profile
 export async function updateUserProfile(
   userId: number,
   profileData: Partial<UserProfile>,
