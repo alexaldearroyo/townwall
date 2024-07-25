@@ -48,7 +48,7 @@ export default function RegisterForm() {
         latitude,
         longitude,
         slug,
-      }), // Added email
+      }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -61,7 +61,9 @@ export default function RegisterForm() {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       router.push('/login');
     } else {
-      setError(data ? data.errors[0].message : 'Invalid username or password');
+      setError(
+        data ? data.errors[0].message : 'Invalid username, email or password',
+      );
     }
   }
 

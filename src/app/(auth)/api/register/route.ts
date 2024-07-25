@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createUser, getUserByUsername } from '../../../../../database/users';
+import {
+  createUser,
+  getUserByUsername,
+  getUserByEmail,
+} from '../../../../../database/users';
 import { createSession } from '../../../../../database/sessions';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
@@ -37,10 +41,17 @@ export async function POST(
     const { username, password, email, latitude, longitude } = result.data;
 
     const existingUser = await getUserByUsername(username);
+    const existingEmailUser = await getUserByEmail(email);
 
     if (existingUser) {
       return NextResponse.json(
         { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Email already in use' }] },
         { status: 409 },
       );
     }
