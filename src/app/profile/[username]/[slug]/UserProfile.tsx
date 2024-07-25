@@ -96,13 +96,15 @@ export default function UserProfile({
       )}
       {!!user.interests && (
         <div className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          {/* <span className="text-blue-900 font-bold dark:text-blue-400">
             Interests:{' '}
-          </span>
+          </span> */}
           {user.interests.split(',').map((interest, index, arr) => (
-            <span key={`interest-${interest}`} className="mr-2">
-              {interest.trim()}
-              {index < arr.length - 1 ? ',' : ''}
+            <span
+              key={`interest-${interest}`}
+              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+            >
+              {interest}
             </span>
           ))}
         </div>

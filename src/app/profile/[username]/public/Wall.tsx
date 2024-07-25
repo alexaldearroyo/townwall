@@ -133,22 +133,44 @@ export default function Wall({
       </div>
       {!!user.fullName && user.fullName.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Full Name: {user.fullName}
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Full Name:{' '}
+          </span>
+          {user.fullName}
         </p>
       )}
       {!!user.description && user.description.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Description: {user.description}
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Description:{' '}
+          </span>
+          {user.description}
         </p>
       )}
       {!!user.interests && user.interests.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Interests: {user.interests}
-        </p>
+        <div className="text-center text-gray-700 dark:text-gray-300">
+          {/* <h3 className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Interests
+          </h3> */}
+          <div className="text-center text-gray-700 dark:text-gray-300">
+            {user.interests.split(',').map((interest) => (
+              <span
+                key={`interest-${interest}`}
+                className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+              >
+                {interest}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
+
       {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Links: {user.profileLinks}
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Links:{' '}
+          </span>
+          {user.profileLinks}
         </p>
       )}
       {!!user.location && (
@@ -156,19 +178,28 @@ export default function Wall({
           {/* <Map latitude={user.location.y} longitude={user.location.x} /> */}
           {!!location && (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              Location: {location.city}, {location.country}
+              <span className="text-blue-900 font-bold dark:text-blue-400">
+                Location:{' '}
+              </span>
+              {location.city}, {location.country}
             </p>
           )}
         </div>
       )}
       {!!user.birthdate && user.birthdate.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Birthdate: {user.birthdate}
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Birthdate:{' '}
+          </span>
+          {user.birthdate}
         </p>
       )}
       {!!user.profession && user.profession.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Profession: {user.profession}
+          <span className="text-blue-900 font-bold dark:text-blue-400">
+            Profession:{' '}
+          </span>
+          {user.profession}
         </p>
       )}
       {!!loggedInUserId && loggedInUserId !== user.id && (
