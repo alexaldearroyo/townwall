@@ -67,44 +67,57 @@ export default function UserProfile({
         <span className="text-9xl">{user.userImage}</span>
       </div>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        Username: {user.username}
+        <span className="text-blue-700 dark:text-blue-400">Username: </span>
+        {user.username}
       </p>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        Email: {user.email}
+        <span className="text-blue-700 dark:text-blue-400">Email: </span>
+        {user.email}
       </p>
       {!!user.fullName && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Full Name: {user.fullName}
+          <span className="text-blue-700 dark:text-blue-400">Full Name: </span>
+          {user.fullName}
         </p>
       )}
       {!!user.description && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Description: {user.description}
+          <span className="text-blue-700 dark:text-blue-400">
+            Description:{' '}
+          </span>
+          {user.description}
         </p>
       )}
       {!!user.interests && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Interests: {user.interests}
+          Interests:
+          {user.interests}
         </p>
       )}
       {!!user.profileLinks && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Links: {user.profileLinks}
+          <span className="text-blue-700 dark:text-blue-400">
+            Profile Links:{' '}
+          </span>
+          {user.profileLinks}
         </p>
       )}
       {!!location && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Location: {location.city}, {location.country}
+          <span className="text-blue-700 dark:text-blue-400">Location:</span>
+          {location.city}, {location.country}
         </p>
       )}
       {!!user.birthdate && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Birthdate: {user.birthdate}
+          <span className="text-blue-700 dark:text-blue-400">Birthdate:</span>
+          {user.birthdate}
         </p>
       )}
       {!!user.profession && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          Profession: {user.profession}
+          <span className="text-blue-700 dark:text-blue-400">Profession:</span>
+          {user.profession}
         </p>
       )}
       {!!error && <p className="text-red-500 text-center">{error}</p>}
