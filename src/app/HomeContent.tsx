@@ -1,9 +1,14 @@
+// src/app/HomeContent.tsx:
+
 import React from 'react';
 
 const HomeContent: React.FC = () => {
   return (
-    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-      <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
+    <div className="w-full max-w-md space-y-6">
+      <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white">
+        Start Particpating
+      </h2>
+      <p className="text-center text-gray-600 dark:text-gray-300">
         Get started by registering an account or signing in.
       </p>
       <div className="flex justify-center space-x-4">
