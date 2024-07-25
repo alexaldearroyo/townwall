@@ -4,20 +4,19 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginForm() {
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    console.log('Attempting login with:', { username, password });
+    console.log('Attempting login with:', { identifier, password });
 
     const response = await fetch('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ identifier, password }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -27,8 +26,7 @@ export default function LoginForm() {
 
     if (response.ok) {
       console.log('Login successful:', data);
-      setSlug(data.user.slug); // Set the slug from the response
-      router.push(`/profile/${username}/private`); // Redirect to profile page
+      router.push(`/profile/${data.user.username}/private`); // Redirect to profile page using username
     } else {
       console.log('Login failed:', data);
       setError(
@@ -49,17 +47,17 @@ export default function LoginForm() {
           {!!error && <p className="text-red-500">{error}</p>}
           <div>
             <label
-              htmlFor="username"
+              htmlFor="identifier"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Username
+              Username or Email
             </label>
             <input
-              id="username"
-              name="username"
-              placeholder="Enter username"
-              value={username}
-              onChange={(event) => setUsername(event.currentTarget.value)}
+              id="identifier"
+              name="identifier"
+              placeholder="Enter username or email"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.currentTarget.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               required
             />

@@ -30,6 +30,7 @@ export default function PrivatePageClient({
   user: {
     id: number;
     username: string;
+    email: string;
     fullName?: string;
     description?: string;
     interests?: string;

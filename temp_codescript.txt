@@ -1,458 +1,69 @@
-// database/users.ts:
-
-import { sql } from './connect';
-import bcrypt from 'bcrypt';
-
-const animalEmojis = [
-  '🐶',
-  '🐱',
-  '🐭',
-  '🐹',
-  '🐰',
-  '🦊',
-  '🐻',
-  '🐼',
-  '🐨',
-  '🐯',
-  '🦁',
-  '🐮',
-  '🐷',
-  '🐸',
-  '🐙',
-];
-
-export type User = {
-  id: number;
-  username: string;
-  passwordHash: string;
-  userImage: string | null;
-  email: string;
-  fullName?: string | null;
-  description?: string | null;
-  interests?: string | null;
-  profileLinks?: string | null;
-  location?: { x: number; y: number } | null | unknown;
-  birthdate?: Date | null;
-  profession?: string | null;
-  createdAt?: Date | null;
-  updatedAt?: Date | null;
-  profileId: number;
-  slug: string;
-};
-
-export type UserProfile = {
-  id: number;
-  username: string;
-  email: string;
-  fullName: string | null;
-  description: string | null;
-  interests: string | null;
-  profileLinks: string | null;
-  userImage: string | null;
-  location: { x: number; y: number } | null;
-  birthdate: Date | null;
-  profession: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  profileId: number;
-  slug: string;
-};
-
-export async function createUser(
-  username: string,
-  password: string,
-  email: string,
-  profileId: number,
-  slug: string,
-  location: { x: number; y: number },
-): Promise<User> {
-  const passwordHash = await bcrypt.hash(password, 10);
-  const randomEmoji =
-    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
-
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-      userImage: string;
-      email: string;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
-      location: string | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      profileId: number;
-      slug: string;
-    }[]
-  >`
-    INSERT INTO
-      users (
-        username,
-        password_hash,
-        user_image,
-        email,
-        profile_id,
-        slug,
-        location
-      )
-    VALUES
-      (
-        ${username},
-        ${passwordHash},
-        ${randomEmoji},
-        ${email},
-        ${profileId},
-        ${slug},
-        st_setsrid (
-          st_point (
-            ${location.x},
-            ${location.y}
-          ),
-          4326
-        )
-      )
-    RETURNING
-      id,
-      username,
-      password_hash AS "passwordHash",
-      user_image AS "userImage",
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      st_astext (location) AS "location",
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt",
-      profile_id AS "profileId",
-      slug
-  `;
-
-  if (users.length === 0) {
-    throw new Error('User creation failed');
-  }
-
-  const user = users[0] as User;
-  if (user.location) {
-    user.location = parseLocation(user.location as string);
-  }
-  return user;
-}
-
-export async function getUserByUsername(
-  username: string,
-): Promise<User | undefined> {
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-      email: string;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
-      userImage: string;
-      location: unknown | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      profileId: number;
-      slug: string;
-    }[]
-  >`
-    SELECT
-      id,
-      username,
-      password_hash AS "passwordHash",
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      st_astext (location) AS "location",
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt",
-      profile_id AS "profileId",
-      slug
-    FROM
-      users
-    WHERE
-      username = ${username}
-  `;
-
-  if (users.length === 0) {
-    return undefined;
-  }
-
-  const user = users[0];
-  if (user) {
-    user.location = user.location
-      ? parseLocation(user.location as string)
-      : null;
-  }
-
-  return user;
-}
-
-// Function to get a user by their ID
-export async function getUserById(id: number): Promise<User> {
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      passwordHash: string;
-      email: string;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
-      userImage: string;
-      location: unknown | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      profileId: number;
-      slug: string;
-    }[]
-  >`
-    SELECT
-      id,
-      username,
-      password_hash AS "passwordHash",
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      st_astext (location) AS "location",
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt",
-      profile_id AS "profileId",
-      slug
-    FROM
-      users
-    WHERE
-      id = ${id}
-  `;
-
-  if (users.length === 0) {
-    throw new Error(`User with username ${id} not found`);
-  }
-
-  const user = users[0];
-  if (!user) {
-    throw new Error(`User with username ${id} not found`);
-  }
-
-  user.location = user.location ? parseLocation(user.location as string) : null;
-
-  return user;
-}
-
-// Function to delete a user by their ID
-export async function deleteUserById(id: number): Promise<void> {
-  await sql`
-    DELETE FROM users
-    WHERE
-      id = ${id}
-  `;
-}
-
-// Function to update user profile
-export async function updateUserProfile(
-  userId: number,
-  profileData: Partial<UserProfile>,
-): Promise<UserProfile> {
-  const birthdateValue = profileData.birthdate
-    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
-    : null;
-  const locationValue = profileData.location
-    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
-    : null;
-  const users = await sql<
-    {
-      id: number;
-      username: string;
-      email: string;
-      fullName: string | null;
-      description: string | null;
-      interests: string | null;
-      profileLinks: string | null;
-      userImage: string;
-      location: string | null;
-      birthdate: Date | null;
-      profession: string | null;
-      createdAt: Date | null;
-      updatedAt: Date | null;
-      profileId: number;
-      slug: string;
-    }[]
-  >`
-    UPDATE users
-    SET
-      full_name = coalesce(
-        ${profileData.fullName ?? 'null'},
-        full_name
-      ),
-      description = coalesce(
-        ${profileData.description ?? 'null'},
-        description
-      ),
-      interests = coalesce(
-        ${profileData.interests ?? 'null'},
-        interests
-      ),
-      profile_links = coalesce(
-        ${profileData.profileLinks ?? 'null'},
-        profile_links
-      ),
-      user_image = coalesce(
-        ${profileData.userImage ?? 'null'},
-        user_image
-      ),
-      location = coalesce(
-        ${locationValue}::geometry,
-        location
-      ),
-      birthdate = coalesce(
-        ${birthdateValue}::date,
-        birthdate
-      ),
-      profession = coalesce(
-        ${profileData.profession ?? 'null'},
-        profession
-      ),
-      updated_at = now()
-    WHERE
-      id = ${userId}
-    RETURNING
-      id,
-      username,
-      email,
-      full_name AS "fullName",
-      description,
-      interests,
-      profile_links AS "profileLinks",
-      user_image AS "userImage",
-      st_astext (location) AS "location",
-      birthdate,
-      profession,
-      created_at AS "createdAt",
-      updated_at AS "updatedAt",
-      profile_id AS "profileId",
-      slug
-  `;
-
-  const updatedUser = users[0];
-
-  if (!updatedUser) {
-    throw new Error('Profile update failed');
-  }
-
-  if (updatedUser.location) {
-    const parsedLocation = parseLocation(updatedUser.location);
-    updatedUser.location = parsedLocation
-      ? JSON.stringify(parsedLocation)
-      : null;
-  }
-
-  return updatedUser as UserProfile;
-}
-
-// Helper function to parse location from string to { x: number; y: number }
-export function parseLocation(
-  locationString: string,
-): { x: number; y: number } | null {
-  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
-  if (!match) {
-    return null;
-  }
-  const [, x, y] = match;
-  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/register/route.ts:
+// src/app/(auth)/api/login/route.ts:
 
 import { NextResponse } from 'next/server';
-import { createUser, getUserByUsername } from '../../../../../database/users';
+import { getUserByUsername } from '../../../../../database/users';
 import { createSession } from '../../../../../database/sessions';
+import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import type { User } from '../../../../../database/users';
 
-type RegisterResponseBodyPost =
-  | { user: User }
-  | { errors: { message: string }[] };
+type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
 
-const userSchema = z.object({
+const loginSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(3),
-  latitude: z.number(),
-  longitude: z.number(),
 });
 
 export async function POST(
   request: Request,
-): Promise<NextResponse<RegisterResponseBodyPost>> {
+): Promise<NextResponse<LoginResponseBodyPost>> {
   try {
     const body = await request.json();
-    const result = userSchema.safeParse(body);
+    console.log('Received login request:', body);
+
+    const result = loginSchema.safeParse(body);
 
     if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
       return NextResponse.json(
-        {
-          errors: result.error.issues.map((issue) => ({
-            message: issue.message,
-          })),
-        },
+        { errors: result.error.issues },
         { status: 400 },
       );
     }
 
-    const { username, password, latitude, longitude } = result.data;
+    const user = await getUserByUsername(result.data.username);
 
-    const existingUser = await getUserByUsername(username);
-
-    if (existingUser) {
+    if (!user) {
+      console.log('User not found:', result.data.username);
       return NextResponse.json(
-        { errors: [{ message: 'Username already taken' }] },
-        { status: 409 },
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
       );
     }
 
-    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
-    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
-
-    const user = await createUser(
-      username,
-      password,
-      username + '@example.com',
-      profileId,
-      slug,
-      { x: longitude, y: latitude },
+    // Add a log to verify the result of bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
     );
+    console.log('Password match result:', passwordMatch);
 
-    // Create a session for the new user
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.username);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
     const session = await createSession(user.id);
 
-    const response = NextResponse.json({ user }, { status: 201 });
+    console.log('Session created:', session);
+
+    const response = NextResponse.json(
+      { user: { ...user, slug: user.slug } },
+      { status: 200 },
+    );
     response.cookies.set('session', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -461,7 +72,7 @@ export async function POST(
 
     return response;
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
     return NextResponse.json(
       { errors: [{ message: 'Internal server error' }] },
       { status: 500 },
@@ -471,51 +82,28 @@ export async function POST(
 
 ----------------------------------------
 
-// src/app/(auth)/register/RegisterForm.tsx:
+// src/app/(auth)/login/LoginForm.tsx:
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-function generateSlug(username: string): string {
-  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-}
-
-export default function RegisterForm() {
+export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
+  const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-      },
-      (geolocationError) => {
-        console.error('Error obtaining geolocation', error);
-        setError('Unable to obtain geolocation');
-      },
-    );
-  }, []);
-
-  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (latitude === null || longitude === null) {
-      setError('Geolocation is required');
-      return;
-    }
+    console.log('Attempting login with:', { username, password });
 
-    const slug = generateSlug(username);
-
-    const response = await fetch('/api/register', {
+    const response = await fetch('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password, latitude, longitude, slug }),
+      body: JSON.stringify({ username, password }),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -524,11 +112,16 @@ export default function RegisterForm() {
     const data = response.ok ? await response.json() : null;
 
     if (response.ok) {
-      setError('User registered successfully');
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      router.push('/login');
+      console.log('Login successful:', data);
+      setSlug(data.user.slug); // Set the slug from the response
+      router.push(`/profile/${username}/private`); // Redirect to profile page
     } else {
-      setError(data ? data.errors[0].message : 'Invalid username or password');
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
     }
   }
 
@@ -536,20 +129,10 @@ export default function RegisterForm() {
     <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Sign Up
+          Sign In
         </h1>
-        <form onSubmit={handleRegister} className="space-y-6">
-          {!!error && (
-            <p
-              className={
-                error === 'User registered successfully'
-                  ? 'text-green-700 text-center'
-                  : 'text-red-500 text-center'
-              }
-            >
-              {error}
-            </p>
-          )}
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
           <div>
             <label
               htmlFor="username"
@@ -586,11 +169,8 @@ export default function RegisterForm() {
             />
           </div>
           <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign Up
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Sign in
             </button>
           </div>
         </form>
@@ -601,16 +181,14 @@ export default function RegisterForm() {
 
 ----------------------------------------
 
-// src/app/(auth)/register/page.tsx:
-
-// src/app/(auth)/register/page.tsx
+// src/app/(auth)/login/page.tsx:
 
 'use client';
 
-import RegisterForm from './RegisterForm';
+import LoginForm from './LoginForm';
 
-export default function RegisterPage() {
-  return <RegisterForm />;
+export default function LoginPage() {
+  return <LoginForm />;
 }
 
 ----------------------------------------

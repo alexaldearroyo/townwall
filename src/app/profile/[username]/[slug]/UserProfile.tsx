@@ -21,6 +21,7 @@ export default function UserProfile({
   user: {
     id: number;
     username: string;
+    email: string;
     fullName?: string;
     description?: string;
     interests?: string;
@@ -67,6 +68,9 @@ export default function UserProfile({
       </div>
       <p className="text-center text-gray-700 dark:text-gray-300">
         Username: {user.username}
+      </p>
+      <p className="text-center text-gray-700 dark:text-gray-300">
+        Email: {user.email}
       </p>
       {!!user.fullName && (
         <p className="text-center text-gray-700 dark:text-gray-300">

@@ -384,3 +384,64 @@ export function parseLocation(
   const [, x, y] = match;
   return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
 }
+
+export async function getUserByUsernameOrEmail(
+  identifier: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${identifier}
+      OR email = ${identifier}
+  `;
+
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}

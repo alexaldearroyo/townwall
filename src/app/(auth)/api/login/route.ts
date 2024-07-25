@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUserByUsername } from '../../../../../database/users';
+import { getUserByUsernameOrEmail } from '../../../../../database/users'; // Cambiado
 import { createSession } from '../../../../../database/sessions';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import type { User } from '../../../../../database/users';
 type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
 
 const loginSchema = z.object({
-  username: z.string().min(3),
+  identifier: z.string().min(3),
   password: z.string().min(3),
 });
 
@@ -29,10 +29,10 @@ export async function POST(
       );
     }
 
-    const user = await getUserByUsername(result.data.username);
+    const user = await getUserByUsernameOrEmail(result.data.identifier); // Cambiado
 
     if (!user) {
-      console.log('User not found:', result.data.username);
+      console.log('User not found:', result.data.identifier);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },
@@ -47,7 +47,7 @@ export async function POST(
     console.log('Password match result:', passwordMatch);
 
     if (!passwordMatch) {
-      console.log('Password mismatch for user:', result.data.username);
+      console.log('Password mismatch for user:', result.data.identifier);
       return NextResponse.json(
         { errors: [{ message: 'Invalid username or password' }] },
         { status: 401 },

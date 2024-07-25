@@ -54,6 +54,7 @@ export default async function ProfilePage({
   const userProfile = {
     id: user.id,
     username: user.username,
+    email: user.email,
     ...(user.fullName && { fullName: user.fullName }),
     ...(user.description && { description: user.description }),
     ...(user.interests && { interests: user.interests }),
