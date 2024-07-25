@@ -33,6 +33,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/images/favicon.ico" sizes="any" />
+      </head>
       <body className={`${inter.className} pt-16`}>
         <Header username={username} />
         <main className="main-content">{children}</main>
