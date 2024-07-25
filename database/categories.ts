@@ -91,3 +91,21 @@ export function getUserCategories(userId: number): Promise<Category[]> {
       uc.user_id = ${userId}
   `;
 }
+
+export async function removeUserCategory(
+  userId: number,
+  categoryName: string,
+): Promise<void> {
+  const category = await getCategoryByName(categoryName);
+
+  if (!category) {
+    throw new Error('Category not found');
+  }
+
+  await sql`
+    DELETE FROM users_categories
+    WHERE
+      user_id = ${userId}
+      AND category_id = ${category.id}
+  `;
+}

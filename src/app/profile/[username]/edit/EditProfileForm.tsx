@@ -135,6 +135,31 @@ export default function EditProfileForm({ user }: { user: any }) {
     }
   }
 
+  async function handleRemoveInterest(interestToRemove: string) {
+    try {
+      const response = await fetch('/api/interests', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          categoryName: interestToRemove,
+          userId: user.id,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove interest');
+      }
+
+      setInterests(
+        interests.filter((interest) => interest !== interestToRemove),
+      );
+    } catch (error) {
+      setError('Failed to remove interest');
+    }
+  }
+
   return (
     <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
@@ -230,10 +255,17 @@ export default function EditProfileForm({ user }: { user: any }) {
             <div className="mt-2 space-y-2">
               {interests.map((interest) => (
                 <span
-                  key={interest}
+                  key={`interest-${interest}`}
                   className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
                 >
                   {interest}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInterest(interest)}
+                    className="ml-2 text-gray-500 hover:text-gray-700"
+                  >
+                    &times;
+                  </button>
                 </span>
               ))}
             </div>
