@@ -10,6 +10,7 @@ function generateSlug(username: string): string {
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,14 @@ export default function RegisterForm() {
 
     const response = await fetch('/api/register', {
       method: 'POST',
-      body: JSON.stringify({ username, password, latitude, longitude, slug }),
+      body: JSON.stringify({
+        username,
+        password,
+        email,
+        latitude,
+        longitude,
+        slug,
+      }), // Added email
       headers: {
         'Content-Type': 'application/json',
       },
@@ -92,6 +100,25 @@ export default function RegisterForm() {
               required
             />
           </div>
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+
           <div>
             <label
               htmlFor="password"

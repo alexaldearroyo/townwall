@@ -1,61 +1,3 @@
-// migrations/00000-createUsersTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE EXTENSION if NOT EXISTS postgis
-    WITH
-      schema public;
-  `;
-
-  await sql`
-    CREATE TABLE users (
-      id serial PRIMARY KEY,
-      username varchar(255) NOT NULL UNIQUE,
-      email varchar(255) NOT NULL UNIQUE,
-      password_hash varchar(255) NOT NULL,
-      profile_id serial UNIQUE,
-      full_name text,
-      description text,
-      interests text,
-      profile_links text,
-      user_image varchar(255) NOT NULL,
-      location geometry (POINT, 4326),
-      birthdate date,
-      profession text,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL UNIQUE
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_users_updated_at before
-    UPDATE ON users FOR each ROW
-    EXECUTE function update_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
-  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
-  await sql`DROP TABLE IF EXISTS users`;
-  await sql`DROP EXTENSION if EXISTS postgis`;
-}
-
-----------------------------------------
-
 // database/users.ts:
 
 import { sql } from './connect';
@@ -447,105 +389,77 @@ export function parseLocation(
 
 ----------------------------------------
 
-// src/app/(auth)/api/profile/route.ts:
+// src/app/(auth)/api/register/route.ts:
 
 import { NextResponse } from 'next/server';
-import {
-  getUserById,
-  updateUserProfile,
-  UserProfile,
-} from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
+import { createUser, getUserByUsername } from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
 import { z } from 'zod';
-import { NextRequest } from 'next/server';
+import type { User } from '../../../../../database/users';
 
-const profileSchema = z.object({
-  fullName: z.string().optional(),
-  description: z.string().optional(),
-  interests: z.string().optional(),
-  profileLinks: z.string().optional(),
-  userImage: z.string().optional(),
-  // location: z.string().optional(),
-  birthdate: z.string().optional(),
-  profession: z.string().optional(),
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
   try {
     const body = await request.json();
-    const result = profileSchema.safeParse(body);
+    const result = userSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
-        { errors: result.error.issues },
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
         { status: 400 },
       );
     }
 
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
+    const { username, password, latitude, longitude } = result.data;
 
-    if (!sessionToken) {
+    const existingUser = await getUserByUsername(username);
+
+    if (existingUser) {
       return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
       );
     }
 
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
 
-    const updatedUser = await updateUserProfile(
-      session.userId,
-      result.data as Partial<UserProfile>,
+    const user = await createUser(
+      username,
+      password,
+      username + '@example.com',
+      profileId,
+      slug,
+      { x: longitude, y: latitude },
     );
 
-    return NextResponse.json({ user: updatedUser });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
+    // Create a session for the new user
+    const session = await createSession(user.id);
 
-export async function GET(request: NextRequest) {
-  try {
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
 
-    if (!sessionToken) {
-      return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
-
-    const user = await getUserById(session.userId);
-    if (!user) {
-      return NextResponse.json(
-        { errors: [{ message: 'User not found' }] },
-        { status: 404 },
-      );
-    }
-
-    console.log(user);
-
-    return NextResponse.json({ user });
+    return response;
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -557,539 +471,146 @@ export async function GET(request: NextRequest) {
 
 ----------------------------------------
 
-// src/app/api/users/username/[username]/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getUserByUsername } from '../../../../../../database/users';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { username: string } },
-) {
-  const { username } = params;
-
-  try {
-    const user = await getUserByUsername(username);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    return NextResponse.json(user);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PrivatePageClient from './PrivatePageClient';
-import Link from 'next/link';
-
-export default async function ProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-  const loggedInUserId = session ? session.userId : null;
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  if (session.userId !== user.id) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">Access denied</p>
-      </div>
-    );
-  }
-
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
-  };
-
-  return (
-    <div>
-      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserProfile.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
-
-export default function UserProfile({
-  user,
-  location,
-  error,
-  handleLogout,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  location: { city: string; country: string } | null;
-  error: string | null;
-  handleLogout: () => void;
-}) {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(
-          `/api/profile/comments?profileId=${user.id}`,
-        );
-        if (response.ok) {
-          const profileComments = await response.json();
-          setComments(profileComments);
-        } else {
-          setFetchError('Failed to fetch comments');
-        }
-      } catch (err) {
-        setFetchError('Failed to fetch comments');
-      }
-    };
-
-    fetchComments();
-  }, [user.id]);
-
-  return (
-    <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        My Wall
-      </h2>
-      <div className="text-center mx-auto">
-        <span className="text-9xl">{user.userImage}</span>
-      </div>
-      <p className="text-center text-gray-700 dark:text-gray-300">
-        Username: {user.username}
-      </p>
-      {!!user.fullName && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Full Name: {user.fullName}
-        </p>
-      )}
-      {!!user.description && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Description: {user.description}
-        </p>
-      )}
-      {!!user.interests && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Interests: {user.interests}
-        </p>
-      )}
-      {!!user.profileLinks && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Links: {user.profileLinks}
-        </p>
-      )}
-      {!!location && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Location: {location.city}, {location.country}
-        </p>
-      )}
-      {!!user.birthdate && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Birthdate: {user.birthdate}
-        </p>
-      )}
-      {!!user.profession && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          Profession: {user.profession}
-        </p>
-      )}
-      {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={() =>
-            (window.location.href = `/profile/${user.username}/edit`)
-          }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-      </div>
-      <hr className="my-8 border-gray-300 dark:border-gray-600" />
-      <div className="w-full space-y-4">
-        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Comments
-        </h2>
-        <div className="space-y-2">
-          {comments.length === 0 ? (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              No comments yet
-            </p>
-          ) : (
-            comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-              >
-                <p className="text-gray-700 dark:text-gray-300">
-                  {comment.content}
-                </p>
-                <small className="text-gray-500 dark:text-gray-400">
-                  {new Date(comment.createdAt).toLocaleString()} by{' '}
-                  <a
-                    href={`/profile/${comment.username}/public`}
-                    className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
-                  >
-                    {comment.username}
-                  </a>
-                </small>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/edit/page.tsx:
-
-// src/app/profile/edit/page.tsx
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserById } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import EditProfileForm from './EditProfileForm';
-
-export default async function EditProfilePage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const user = await getUserById(session.userId);
-
-  const userProfile = {
-    username: user.username,
-    fullName: user.fullName || '',
-    description: user.description || '',
-    interests: user.interests || '',
-    profileLinks: user.profileLinks || '',
-    userImage: user.userImage || '',
-    location: user.location || '',
-    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
-    profession: user.profession || '',
-  };
-
-  return (
-    <div className="main-content form-container bg-white dark:bg-gray-900">
-      <EditProfileForm user={userProfile} />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/edit/EditProfileForm.tsx:
+// src/app/(auth)/register/RegisterForm.tsx:
 
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function EditProfileForm({ user }: { user: any }) {
-  const [formData, setFormData] = useState(user);
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    setFormData(user);
-  }, [user]);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
+  }, []);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        body: JSON.stringify(formData),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setFormData(updatedUser.user);
-        router.push(
-          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
-        );
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
     }
-  }
 
-  async function handleDelete() {
-    try {
-      const response = await fetch('/api/delete', {
-        method: 'POST',
-      });
+    const slug = generateSlug(username);
 
-      if (response.ok) {
-        router.push('/register');
-      } else {
-        throw new Error('Failed to delete user');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, latitude, longitude, slug }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(data ? data.errors[0].message : 'Invalid username or password');
     }
-  }
-
-  function handleChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    const { name, value } = event.target;
-    setFormData((prevData: any) => ({
-      ...prevData,
-      [name]: value,
-    }));
   }
 
   return (
-    <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Edit My Profile
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign Up
         </h1>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-800 p-6 rounded-md mx-auto"
-        >
-          <div>
-            <label
-              htmlFor="fullName"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Full Name
-            </label>
-            <input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder={formData.fullName ? '' : 'Enter your full name'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder={
-                formData.description ? '' : 'Enter a description of yourself'
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && (
+            <p
+              className={
+                error === 'User registered successfully'
+                  ? 'text-green-700 text-center'
+                  : 'text-red-500 text-center'
               }
+            >
+              {error}
+            </p>
+          )}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Enter username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
             />
           </div>
           <div>
             <label
-              htmlFor="interests"
+              htmlFor="password"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Interests
+              Password
             </label>
             <input
-              id="interests"
-              name="interests"
-              value={formData.interests}
-              onChange={handleChange}
-              placeholder={formData.interests ? '' : 'Enter your interests'}
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              required
             />
           </div>
           <div>
-            <label
-              htmlFor="profileLinks"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Personal Links
-            </label>
-            <input
-              id="profileLinks"
-              name="profileLinks"
-              value={formData.profileLinks}
-              onChange={handleChange}
-              placeholder={
-                formData.profileLinks ? '' : 'Enter your personal links'
-              }
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          {/* <div>
-            <label
-              htmlFor="userImage"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Picture URL
-            </label>
-            <input
-              id="userImage"
-              name="userImage"
-              value={formData.userImage}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div> */}
-          <div>
-            <label
-              htmlFor="birthdate"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Birth Date
-            </label>
-            <input
-              id="birthdate"
-              name="birthdate"
-              type="date"
-              value={formData.birthdate}
-              onChange={handleChange}
-              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profession"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Profession
-            </label>
-            <input
-              id="profession"
-              name="profession"
-              value={formData.profession}
-              onChange={handleChange}
-              placeholder={formData.profession ? '' : 'Enter your profession'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div className="flex justify-center space-x-4">
-            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-              Save Changes
-            </button>
             <button
-              type="button"
-              onClick={handleDelete}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Delete User
+              Sign Up
             </button>
           </div>
         </form>
       </div>
     </div>
   );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/page.tsx:
+
+// src/app/(auth)/register/page.tsx
+
+'use client';
+
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return <RegisterForm />;
 }
 
 ----------------------------------------

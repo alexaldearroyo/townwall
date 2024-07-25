@@ -11,6 +11,7 @@ type RegisterResponseBodyPost =
 const userSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(3),
+  email: z.string().email(),
   latitude: z.number(),
   longitude: z.number(),
 });
@@ -33,7 +34,7 @@ export async function POST(
       );
     }
 
-    const { username, password, latitude, longitude } = result.data;
+    const { username, password, email, latitude, longitude } = result.data;
 
     const existingUser = await getUserByUsername(username);
 
@@ -47,14 +48,10 @@ export async function POST(
     const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
     const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
 
-    const user = await createUser(
-      username,
-      password,
-      username + '@example.com',
-      profileId,
-      slug,
-      { x: longitude, y: latitude },
-    );
+    const user = await createUser(username, password, email, profileId, slug, {
+      x: longitude,
+      y: latitude,
+    });
 
     // Create a session for the new user
     const session = await createSession(user.id);
