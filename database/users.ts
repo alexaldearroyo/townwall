@@ -338,6 +338,7 @@ export async function updateUserProfile(
   const locationValue = profileData.location
     ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
     : null;
+
   const users = await sql<
     {
       id: number;

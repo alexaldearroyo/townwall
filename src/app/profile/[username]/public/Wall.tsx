@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getCityAndCountry } from '../../../../../util/geocode';
+import { CldImage } from 'next-cloudinary';
 
 const Map = dynamic(() => import('../../../../components/MapComponent'), {
   ssr: false,
@@ -130,8 +131,19 @@ export default function Wall({
       <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         {user.username}'s Wall
       </h1>
-      <div className="text-center mx-auto">
-        <span className="text-9xl">{user.userImage}</span>
+      <div className="flex justify-center items-center mx-auto">
+        {user.userImage && user.userImage.startsWith('http') ? (
+          <CldImage
+            src={user.userImage}
+            width="150"
+            height="150"
+            crop="fill"
+            alt="User profile image"
+            style={{ borderRadius: '50%' }}
+          />
+        ) : (
+          <span className="text-9xl">{user.userImage}</span>
+        )}
       </div>
       {!!user.fullName && user.fullName.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">

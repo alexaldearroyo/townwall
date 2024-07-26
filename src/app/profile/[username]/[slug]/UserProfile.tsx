@@ -1,4 +1,5 @@
 'use client';
+import { CldImage } from 'next-cloudinary';
 
 import React, { useState, useEffect } from 'react';
 
@@ -61,9 +62,21 @@ export default function UserProfile({
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
         My Wall
       </h2>
-      <div className="text-center mx-auto">
-        <span className="text-9xl">{user.userImage}</span>
+      <div className="flex justify-center items-center mx-auto">
+        {user.userImage && user.userImage.startsWith('http') ? (
+          <CldImage
+            src={user.userImage}
+            width="150"
+            height="150"
+            crop="fill"
+            alt="User profile image"
+            style={{ borderRadius: '50%' }}
+          />
+        ) : (
+          <span className="text-9xl">{user.userImage}</span>
+        )}
       </div>
+
       <p className="text-center text-gray-700 dark:text-gray-300">
         <span className="text-sky-800 font-bold dark:text-sky-600">
           Username:{' '}

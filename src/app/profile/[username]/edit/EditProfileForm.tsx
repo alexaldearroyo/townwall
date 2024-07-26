@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { CldUploadWidget } from 'next-cloudinary';
+import { CldImage } from 'next-cloudinary';
 
 const animalEmojis = [
   '🐶',
@@ -22,7 +24,12 @@ const animalEmojis = [
 ];
 
 export default function EditProfileForm({ user }: { user: any }) {
-  const [formData, setFormData] = useState(user);
+  const [formData, setFormData] = useState({
+    ...user,
+    userImage:
+      user.userImage ||
+      animalEmojis[Math.floor(Math.random() * animalEmojis.length)],
+  });
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
@@ -101,12 +108,6 @@ export default function EditProfileForm({ user }: { user: any }) {
     setShowEmojiPicker(false);
   }
 
-  function toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, (txt) => {
-      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-    });
-  }
-
   async function handleAddInterest() {
     const titleCaseInterest = toTitleCase(newInterest);
 
@@ -155,8 +156,23 @@ export default function EditProfileForm({ user }: { user: any }) {
       setInterests(
         interests.filter((interest) => interest !== interestToRemove),
       );
-    } catch (error) {
+    } catch {
       setError('Failed to remove interest');
+    }
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+    });
+  }
+
+  function handleUpload(result: any) {
+    if (result.event === 'success') {
+      setFormData((prevData: any) => ({
+        ...prevData,
+        userImage: result.info.secure_url,
+      }));
     }
   }
 
@@ -171,10 +187,28 @@ export default function EditProfileForm({ user }: { user: any }) {
             className="text-9xl cursor-pointer"
             onClick={handleEmojiClick}
             tabIndex={0}
+            style={{
+              borderRadius: '50%',
+              overflow: 'hidden',
+              width: '150px',
+              height: '150px',
+            }}
           >
-            {formData.userImage}
+            {formData.userImage.startsWith('http') ? (
+              <CldImage
+                src={formData.userImage}
+                width="150"
+                height="150"
+                crop="fill"
+                alt=""
+              />
+            ) : (
+              formData.userImage
+            )}
           </button>
-          <p className="text-gray-500 text-sm">Click on image to change</p>
+          <p className="text-gray-500 text-sm">
+            Click on image to change to avatar
+          </p>
           {showEmojiPicker && (
             <div className="mt-2 flex flex-wrap justify-center space-x-2">
               {animalEmojis.map((emoji) => (
@@ -188,6 +222,16 @@ export default function EditProfileForm({ user }: { user: any }) {
               ))}
             </div>
           )}
+          <CldUploadWidget uploadPreset="ml_default" onUpload={handleUpload}>
+            {({ open }) => (
+              <button
+                onClick={() => open()}
+                className="mt-4 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Upload Image
+              </button>
+            )}
+          </CldUploadWidget>
         </div>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <form
@@ -285,7 +329,7 @@ export default function EditProfileForm({ user }: { user: any }) {
               placeholder={
                 formData.profileLinks ? '' : 'Enter your personal links'
               }
-              className="mt-1 block w-full px-3 py-2 border               border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
           </div>
           <div>
