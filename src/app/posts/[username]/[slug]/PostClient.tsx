@@ -84,7 +84,7 @@ export default function PostClient({ post }: { post: any }) {
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                  className="text-blue-700 dark:text-blue-400 hover:text-sky-800"
                 >
                   {comment.username}
                 </a>
@@ -103,7 +103,7 @@ export default function PostClient({ post }: { post: any }) {
           <div className="flex justify-center">
             <button
               type="submit"
-              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
             >
               Submit
             </button>

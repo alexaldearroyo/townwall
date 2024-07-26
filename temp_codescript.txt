@@ -1,49 +1,546 @@
-// src/app/page.tsx:
+v// migrations/00007-createUsersCategoriesTable.ts:
 
-import React from 'react';
-import HomeContent from './HomeStart';
+import { Sql } from 'postgres';
 
-const Home: React.FC = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <HomeContent />
-    </div>
-  );
-};
+export async function up(sql: Sql) {
+  await sql`
+    CREATE TABLE users_categories (
+      id serial PRIMARY KEY,
+      user_id int NOT NULL REFERENCES users (id),
+      category_id int NOT NULL REFERENCES categories (id)
+    )
+  `;
+}
 
-export default Home;
+export async function down(sql: Sql) {
+  await sql`DROP TABLE users_categories`;
+}
 
 ----------------------------------------
 
-// src/app/HomeStart.tsx:
+// src/app/(auth)/api/posts/route.ts:
 
-import React from 'react';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
 
-const HomeContent: React.FC = () => {
+// Crear Post
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
+    }
+
+    const { title, content, slug, icon, categoryId } = await request.json();
+
+    if (!title || !content || !slug) {
+      return NextResponse.json(
+        { error: 'Title, content, and slug are required' },
+        { status: 400 },
+      );
+    }
+
+    const post = await createPost(
+      session.userId,
+      title,
+      content,
+      slug,
+      icon,
+      categoryId,
+    );
+
+    return NextResponse.json(
+      { ...post, userId: session.userId },
+      { status: 201 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+// Obtener Posts por Usuario
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(parseInt(userId, 10));
+    return NextResponse.json(posts);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/posts/user/[id]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getPostsByUserId } from '../../../../../../database/posts';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const userId = parseInt(params.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(userId);
+    return NextResponse.json(posts);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/new/NewPostForm.tsx:
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type UserType = {
+  id: number;
+  username: string;
+};
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+function generateSlug(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function NewPostForm({ user }: { user: UserType }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const slug = generateSlug(title);
+
+    console.log('Form data:', { userId: user.id, title, content, slug });
+
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, title, content, slug }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const post: PostType = await response.json();
+        router.push(`/posts/${user.username}/${post.slug}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create post');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
   return (
-    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-      <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
-        Get started by registering an account or signing in.
-      </p>
-      <div className="flex justify-center space-x-4">
-        <a
-          href="/register"
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
-        >
-          Sign Up
-        </a>
-        <a
-          href="/login"
-          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
-          Sign In
-        </a>
+    <div className="flex items-center justify-center mt-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Create a New Post
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {!!error && <p className="text-red-500 text-center">{error}</p>}
+          <div>
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Title
+            </label>
+            <input
+              id="title"
+              name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Write the title here"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="content"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Content
+            </label>
+            <textarea
+              id="content"
+              name="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your post here"
+              required
+              className="mt-1 block w-full h-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div className="flex justify-center">
+            <button className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Add Post
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/new/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import NewPostForm from './NewPostForm';
+
+export default async function NewPostPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <NewPostForm user={user} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import { getPostsByUserId } from '../../../../database/posts';
+
+export default async function UserPostsPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const posts = await getPostsByUserId(user.id);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-4xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+          Posts by {user.username}
+        </h1>
+        {posts.length > 0 ? (
+          <ul>
+            {posts.map((post) => (
+              <li key={`post-${post.id}`} className="mb-4">
+                <a
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
+                </a>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Loading...
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/[slug]/PostClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
 };
 
-export default HomeContent;
+export default function PostClient({ post }: { post: any }) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/comments?postId=${post.id}`)
+      .then((response) => response.json())
+      .then((data) => setComments(data))
+      .catch((err) => setError('Failed to fetch comments'));
+  }, [post.id]);
+
+  const handleCommentSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        body: JSON.stringify({ postId: post.id, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err) {
+      setError('Failed to add comment');
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          {post.title}
+        </h1>
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          By{' '}
+          <a
+            href={`/profile/${post.author}/public`}
+            className="text-blue-700 dark:text-blue-400"
+          >
+            {post.author}
+          </a>{' '}
+          on {new Date(post.createdAt).toLocaleDateString()}
+        </p>
+        <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
+
+        <hr className="my-4 border-gray-300 dark:border-gray-600" />
+
+        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
+          Comments
+        </h2>
+
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500">
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                <a
+                  href={`/profile/${comment.username}/public`}
+                  className="text-blue-700 dark:text-blue-400 hover:text-sky-800"
+                >
+                  {comment.username}
+                </a>
+              </small>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={handleCommentSubmit} className="space-y-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Submit
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/[slug]/page.tsx:
+
+import { cookies } from 'next/headers';
+import { getPostByUserAndSlug } from '../../../../../database/posts';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PostClient from './PostClient';
+import React from 'react';
+
+export default async function PostPage({
+  params,
+}: {
+  params: { username: string; slug: string };
+}) {
+  const { username, slug } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const post = await getPostByUserAndSlug(username, slug);
+
+  if (!post) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Post not found</p>
+      </div>
+    );
+  }
+
+  // Include the author's username in the post data
+  post.author = username;
+
+  return <PostClient post={post} />;
+}
 
 ----------------------------------------
 
