@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../database/sessions';
 import { createPost, getPostsByUserId } from '../../../../../database/posts';
-import { addPostCategories } from '../../../../../database/categories';
+import {
+  addPostCategory,
+  getPostCategories,
+  PostCategory,
+} from '../../../../../database/posts_categories';
 
 // Crear Post
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -31,10 +35,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Verifica que categoryNames esté definido y sea un array
     const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
 
-    // Crear nuevas categorías y obtener sus IDs
+    // Crear el post
+    const post = await createPost(session.userId, title, content, slug, icon);
+
+    // Construir URL completa para la API de categorías
+    const baseUrl = new URL(request.url).origin;
+
+    // Crear nuevas categorías y asociarlas al post
     const newCategoryResponses = await Promise.all(
       categoriesArray.map(async (categoryName) => {
-        const response = await fetch('/api/categories', {
+        const response = await fetch(`${baseUrl}/api/categories`, {
           method: 'POST',
           body: JSON.stringify({ categoryName, description: '' }),
           headers: {
@@ -46,21 +56,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error('Invalid category response:', jsonResponse);
           throw new Error('Invalid category response');
         }
+
+        // Asignar categoría al post
+        await addPostCategory(post.id, jsonResponse.category.id);
+
         return jsonResponse.category.id;
       }),
     );
 
-    const post = await createPost(
-      session.userId,
-      title,
-      content,
-      slug,
-      icon,
-      newCategoryResponses,
-    );
-
     return NextResponse.json(
-      { ...post, userId: session.userId },
+      { ...post, userId: session.userId, categoryIds: newCategoryResponses },
       { status: 201 },
     );
   } catch (error) {
@@ -83,7 +88,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const posts = await getPostsByUserId(parseInt(userId, 10));
-    return NextResponse.json(posts);
+
+    const postsWithCategories = await Promise.all(
+      posts.map(async (post) => {
+        const categories = await getPostCategories(post.id);
+        return { ...post, categories };
+      }),
+    );
+
+    return NextResponse.json(postsWithCategories);
   } catch (error) {
     console.error('Error fetching posts:', error);
     return NextResponse.json(

@@ -1,119 +1,546 @@
-// database/comments.ts:
+// src/app/(auth)/register/RegisterForm.tsx:
 
-import { sql } from './connect';
+'use client';
 
-export type Comment = {
-  id: number;
-  postId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-};
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
+  }, []);
+
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
+    }
+
+    const slug = generateSlug(username);
+
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        password,
+        email,
+        latitude,
+        longitude,
+        slug,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(
+        data ? data.errors[0].message : 'Invalid username, email or password',
+      );
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign Up
+        </h1>
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && (
+            <p
+              className={
+                error === 'User registered successfully'
+                  ? 'text-green-700 text-center'
+                  : 'text-red-500 text-center'
+              }
+            >
+              {error}
+            </p>
+          )}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Enter username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 ----------------------------------------
 
-// database/profiles_comments.ts:
+// src/app/(auth)/register/page.tsx:
 
-import { sql } from './connect';
+// src/app/(auth)/register/page.tsx
 
-export type ProfileComment = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-};
+'use client';
 
-export async function createProfileComment(
-  profileId: number,
-  userId: number,
-  content: string,
-): Promise<ProfileComment> {
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return <RegisterForm />;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/followers/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { getFollowers } from '../../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
+
+  const followers = await getFollowers(session.userId);
+
+  return NextResponse.json(followers);
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/posts/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
+import {
+  addPostCategory,
+  getPostCategories,
+  PostCategory,
+} from '../../../../../database/posts_categories';
+
+// Crear Post
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const user = await sql<{ id: number }[]>`
-      SELECT
-        id
-      FROM
-        users
-      WHERE
-        id = ${profileId}
-    `;
-
-    if (user.length === 0) {
-      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
     }
 
-    const [comment] = await sql<ProfileComment[]>`
-      INSERT INTO
-        profiles_comments (profile_id, user_id, content)
-      VALUES
-        (
-          ${profileId},
-          ${userId},
-          ${content}
-        )
-      RETURNING
-        id,
-        profile_id AS "profileId",
-        user_id AS "userId",
-        content,
-        created_at AS "createdAt",
-        (
-          SELECT
-            username
-          FROM
-            users
-          WHERE
-            id = ${userId}
-        ) AS "username",
-        (
-          SELECT
-            user_image
-          FROM
-            users
-          WHERE
-            id = ${userId}
-        ) AS "userImage"
-    `;
-
-    if (!comment) {
-      throw new Error('Failed to create profile comment');
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
     }
 
-    return comment;
+    const { title, content, slug, icon, categoryNames } = await request.json();
+
+    if (!title || !content || !slug) {
+      return NextResponse.json(
+        { error: 'Title, content, and slug are required' },
+        { status: 400 },
+      );
+    }
+
+    // Verifica que categoryNames esté definido y sea un array
+    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
+
+    // Crear el post
+    const post = await createPost(session.userId, title, content, slug, icon);
+
+    // Construir URL completa para la API de categorías
+    const baseUrl = new URL(request.url).origin;
+
+    // Crear nuevas categorías y asociarlas al post
+    const newCategoryResponses = await Promise.all(
+      categoriesArray.map(async (categoryName) => {
+        const response = await fetch(`${baseUrl}/api/categories`, {
+          method: 'POST',
+          body: JSON.stringify({ categoryName, description: '' }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const jsonResponse = await response.json();
+        if (!jsonResponse.category || !jsonResponse.category.id) {
+          console.error('Invalid category response:', jsonResponse);
+          throw new Error('Invalid category response');
+        }
+
+        // Asignar categoría al post
+        await addPostCategory(post.id, jsonResponse.category.id);
+
+        return jsonResponse.category.id;
+      }),
+    );
+
+    return NextResponse.json(
+      { ...post, userId: session.userId, categoryIds: newCategoryResponses },
+      { status: 201 },
+    );
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('violates foreign key constraint')
-    ) {
-      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
-    } else {
-      throw error;
-    }
+    console.error('Error creating post:', error);
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
   }
 }
 
-export function getCommentsByProfileUserId(
-  profileId: number,
-): Promise<ProfileComment[]> {
-  return sql<ProfileComment[]>`
+// Obtener Posts por Usuario
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(parseInt(userId, 10));
+
+    const postsWithCategories = await Promise.all(
+      posts.map(async (post) => {
+        const categories = await getPostCategories(post.id);
+        return { ...post, categories };
+      }),
+    );
+
+    return NextResponse.json(postsWithCategories);
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/delete/route.ts:
+
+// src/app/(auth)/api/delete/route.ts
+
+import { NextResponse } from 'next/server';
+import { getUserById, deleteUserById } from '../../../../../database/users';
+import {
+  getSessionByToken,
+  deleteSessionByToken,
+} from '../../../../../database/sessions';
+
+export async function POST(request: Request) {
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.json(
+      { errors: [{ message: 'Invalid session token' }] },
+      { status: 401 },
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  if (!user) {
+    return NextResponse.json(
+      { errors: [{ message: 'User not found' }] },
+      { status: 404 },
+    );
+  }
+
+  await deleteUserById(user.id);
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'User deleted successfully' });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/logout/route.ts:
+
+// src/app/(auth)/api/logout/route.ts
+import { deleteSessionByToken } from '../../../../../database/sessions';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'Logged out successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/search/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '../../../../../database/connect';
+import { parseLocation, User } from '../../../../../database/users';
+import { getCityAndCountry } from '../../../../../util/geocode';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const query = url.searchParams.get('query');
+
+  if (!query) {
+    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
+  }
+
+  const searchResults = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+      location: unknown | null;
+    }[]
+  >`
     SELECT
-      profiles_comments.id,
-      profiles_comments.profile_id AS "profileId",
-      profiles_comments.user_id AS "userId",
-      profiles_comments.content,
-      profiles_comments.created_at AS "createdAt",
-      users.username,
-      users.user_image AS "userImage"
+      id,
+      username,
+      email,
+      user_image AS "userImage",
+      st_astext (location) AS location
     FROM
-      profiles_comments
-      JOIN users ON profiles_comments.user_id = users.id
+      users
     WHERE
-      profiles_comments.profile_id = ${profileId}
-    ORDER BY
-      profiles_comments.created_at DESC
+      username ILIKE ${'%' + query + '%'}
+      OR location ILIKE ${'%' + query + '%'}
   `;
+
+  const users = await Promise.all(
+    searchResults.map(async (user) => {
+      if (user.location) {
+        const location = parseLocation(user.location as string);
+        if (location) {
+          const { city, country } = await getCityAndCountry(
+            location.y,
+            location.x,
+          );
+          user.location = `${city}, ${country}`;
+        } else {
+          user.location = 'Unknown';
+        }
+      }
+      return user;
+    }),
+  );
+
+  return NextResponse.json(users);
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/register/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  createUser,
+  getUserByUsername,
+  getUserByEmail,
+} from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+  email: z.string().email(),
+  latitude: z.number(),
+  longitude: z.number(),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const { username, password, email, latitude, longitude } = result.data;
+
+    const existingUser = await getUserByUsername(username);
+    const existingEmailUser = await getUserByEmail(email);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Email already in use' }] },
+        { status: 409 },
+      );
+    }
+
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+
+    const user = await createUser(username, password, email, profileId, slug, {
+      x: longitude,
+      y: latitude,
+    });
+
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------
@@ -231,6 +658,555 @@ export async function GET(request: NextRequest) {
 
 ----------------------------------------
 
+// src/app/(auth)/api/following/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { getFollowingUsers } from '../../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
+
+  const followingUsers = await getFollowingUsers(session.userId);
+
+  return NextResponse.json(followingUsers);
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/follows/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { followUser, unfollowUser } from '../../../../../database/follows';
+import { sql } from '../../../../../database/connect';
+
+export async function POST(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await followUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Followed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function DELETE(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await unfollowUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Unfollowed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const followerId = parseInt(url.searchParams.get('followerId') || '0', 10);
+  const followedId = parseInt(url.searchParams.get('followedId') || '0', 10);
+
+  if (!followerId || !followedId) {
+    return NextResponse.json(
+      { error: 'Follower ID and Followed ID are required' },
+      { status: 400 },
+    );
+  }
+
+  const [result] = await sql<{ '?column?': number }[]>`
+    SELECT
+      1
+    FROM
+      follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+    LIMIT
+      1
+  `;
+
+  const isFollowing = result !== undefined;
+  return NextResponse.json({ isFollowing }, { status: 200 });
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/interests/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  createCategory,
+  getCategoryByName,
+  addUserCategory,
+  getUserCategories,
+  removeUserCategory,
+} from '../../../../../database/categories';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { NextRequest } from 'next/server';
+
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, (txt) => {
+    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
+  });
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { categoryName } = body;
+
+    const sessionToken = request.cookies.get('session');
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = await getSessionByToken(sessionToken.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.userId;
+    const titleCaseCategoryName = toTitleCase(categoryName);
+    let category = await getCategoryByName(titleCaseCategoryName);
+
+    if (!category) {
+      category = await createCategory(titleCaseCategoryName);
+    }
+
+    await addUserCategory(userId, category.id);
+
+    const userCategories = await getUserCategories(userId);
+    return NextResponse.json({ categories: userCategories });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { categoryName, userId } = body;
+
+    const sessionToken = request.cookies.get('session');
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = await getSessionByToken(sessionToken.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const titleCaseCategoryName = toTitleCase(categoryName);
+    await removeUserCategory(userId, titleCaseCategoryName);
+
+    const userCategories = await getUserCategories(userId);
+    return NextResponse.json({ categories: userCategories });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/categories/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  createCategory,
+  getCategories,
+  removePostCategory,
+} from '../../../../../database/categories';
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, description } = await request.json();
+    const category = await createCategory(categoryName, description);
+    return NextResponse.json({ category });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, postId } = await request.json();
+    await removePostCategory(postId, categoryName);
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/login/route.ts:
+
+import { NextResponse } from 'next/server';
+import { getUserByUsernameOrEmail } from '../../../../../database/users'; // Cambiado
+import { createSession } from '../../../../../database/sessions';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
+
+const loginSchema = z.object({
+  identifier: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<LoginResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    console.log('Received login request:', body);
+
+    const result = loginSchema.safeParse(body);
+
+    if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsernameOrEmail(result.data.identifier); // Cambiado
+
+    if (!user) {
+      console.log('User not found:', result.data.identifier);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    // Add a log to verify the result of bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
+
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.identifier);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
+    const response = NextResponse.json(
+      { user: { ...user, slug: user.slug } },
+      { status: 200 },
+    );
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/LoginForm.tsx:
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LoginForm() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    console.log('Attempting login with:', { identifier, password });
+
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      console.log('Login successful:', data);
+      router.push(`/profile/${data.user.username}/private`); // Redirect to profile page using username
+    } else {
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Sign In
+        </h1>
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500">{error}</p>}
+          <div>
+            <label
+              htmlFor="identifier"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username or Email
+            </label>
+            <input
+              id="identifier"
+              name="identifier"
+              placeholder="Enter username or email"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <button className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/page.tsx:
+
+'use client';
+
+import LoginForm from './LoginForm';
+
+export default function LoginPage() {
+  return <LoginForm />;
+}
+
+----------------------------------------
+
+// src/app/HomeContent.tsx:
+
+import React from 'react';
+import { UserGroupIcon, MapIcon, HeartIcon } from '@heroicons/react/24/outline';
+
+const features = [
+  {
+    id: 'connect-with-friends',
+    icon: <UserGroupIcon className="h-12 w-12 text-sky-700" />,
+    title: 'Connect with Friends',
+    description: 'Find and connect with people who share your interests.',
+  },
+  {
+    id: 'explore-nearby',
+    icon: <MapIcon className="h-12 w-12 text-sky-700" />,
+    title: 'Explore Nearby',
+    description: 'Discover people and events happening around you.',
+  },
+  {
+    id: 'share-interests',
+    icon: <HeartIcon className="h-12 w-12 text-sky-700" />,
+    title: 'Share Your Interests',
+    description: 'Create and join groups to share your hobbies and passions.',
+  },
+];
+
+const HomeContent: React.FC = () => {
+  return (
+    <div className="w-full max-w-md space-y-6">
+      <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white">
+        Start Participating
+      </h2>
+      <p className="text-center text-gray-600 dark:text-gray-300">
+        Get started by registering an account or signing in.
+      </p>
+      <div className="flex justify-center space-x-4">
+        <a
+          href="/register"
+          className="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded-md hover:bg-sky-700"
+        >
+          Sign Up
+        </a>
+        <a
+          href="/login"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-300 text-gray-900 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+        >
+          Sign In
+        </a>
+      </div>
+      <hr className="my-6 border-gray-300 dark:border-gray-600" />
+      <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white">
+        Features
+      </h2>
+      <div className="flex flex-wrap justify-around">
+        {features.map((feature) => (
+          <div
+            key={feature.id}
+            className="w-full md:w-1/3 p-2 flex flex-col items-center text-center"
+          >
+            {feature.icon}
+            <h3 className="mt-4 text-md font-bold text-gray-900 dark:text-white">
+              {feature.title}
+            </h3>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">
+              {feature.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default HomeContent;
+
+----------------------------------------
+
+// src/app/IntroContent.tsx:
+
+import React from 'react';
+import Image from 'next/image';
+
+const IntroContent: React.FC = () => {
+  return (
+    <div className="w-full max-w-md space-y-8">
+      <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white">
+        Welcome to Townwall
+      </h2>
+      <div className="flex justify-center">
+        <Image src="/town.svg" alt="Town" width={300} height={200} />
+      </div>
+      <p className="text-center mt-4 text-gray-600 dark:text-gray-300">
+        Connect with people nearby who share your interests.
+        <br />
+        Our platform helps you find and interact with individuals who are close
+        to you and have common hobbies and passions.
+      </p>
+    </div>
+  );
+};
+
+export default IntroContent;
+
+----------------------------------------
+
 // src/app/api/comments/route.ts:
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -282,7 +1258,88 @@ export async function GET(request: NextRequest) {
 
 ----------------------------------------
 
-// src/app/api/profile/[id]/comments/route.ts:
+// src/app/api/posts/user/[id]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getPostsByUserId } from '../../../../../../database/posts';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const userId = parseInt(params.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(userId);
+    return NextResponse.json(posts);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/search/nearby/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '../../../../../database/connect';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const latitude = parseFloat(url.searchParams.get('latitude') || '0');
+  const longitude = parseFloat(url.searchParams.get('longitude') || '0');
+  const radius = parseInt(url.searchParams.get('radius') || '10'); // Radius in kilometers
+
+  if (!latitude || !longitude) {
+    return NextResponse.json(
+      { error: 'Latitude and Longitude are required' },
+      { status: 400 },
+    );
+  }
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+      location: unknown | null;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      email,
+      user_image AS "userImage",
+      st_astext (location) AS location
+    FROM
+      users
+    WHERE
+      st_dwithin (
+        location,
+        st_setsrid (
+          st_makepoint (
+            ${longitude},
+            ${latitude}
+          ),
+          4326
+        ),
+        ${radius} * 1000
+      )
+  `;
+
+  return NextResponse.json(users);
+}
+
+----------------------------------------
+
+// src/app/api/profile/[username]/comments/route.ts:
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../../database/sessions';
@@ -290,6 +1347,7 @@ import {
   createProfileComment,
   getCommentsByProfileUserId,
 } from '../../../../../../database/profiles_comments';
+import { getUserByUsername } from '../../../../../../database/users';
 
 export async function POST(request: NextRequest) {
   try {
@@ -308,17 +1366,25 @@ export async function POST(request: NextRequest) {
     }
 
     const { content } = await request.json();
-    const profileId = request.nextUrl.pathname.split('/')[3];
+    const username = request.nextUrl.pathname.split('/')[3];
 
-    if (!profileId || !content) {
+    if (!username || !content) {
       return NextResponse.json(
-        { error: 'Profile ID and content are required' },
+        { error: 'Username and content are required' },
         { status: 400 },
       );
     }
 
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
     const comment = await createProfileComment(
-      parseInt(profileId, 10),
+      user.id,
       session.userId,
       content,
     );
@@ -327,7 +1393,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error adding comment:', error);
     return NextResponse.json(
-      { error: 'Failed to add comment' },
+      { error: `Failed to add comment: ${(error as Error).message}` },
       { status: 500 },
     );
   }
@@ -335,24 +1401,1279 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const profileId = request.nextUrl.pathname.split('/')[3];
+    const username = request.nextUrl.pathname.split('/')[3];
 
-    if (!profileId) {
+    if (!username) {
       return NextResponse.json(
-        { error: 'Profile ID is required' },
+        { error: 'Username is required' },
         { status: 400 },
       );
     }
 
-    const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
+    const comments = await getCommentsByProfileUserId(user.id);
     return NextResponse.json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch comments' },
+      { error: `Failed to fetch comments: ${(error as any).message}` },
       { status: 500 },
     );
   }
+}
+
+----------------------------------------
+
+// src/app/api/users/username/[username]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserByUsername } from '../../../../../../database/users';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { username: string } },
+) {
+  const { username } = params;
+
+  try {
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    return NextResponse.json(user);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/friends/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  getFollowersWithLocation,
+  getFollowingWithLocation,
+} from '../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const followers = await getFollowersWithLocation(Number(userId));
+    const following = await getFollowingWithLocation(Number(userId));
+    const allFriends = [...followers, ...following].map((friend) => ({
+      ...friend,
+      location: friend.location as string,
+    }));
+    return NextResponse.json(allFriends);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to fetch friends' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/globals.css:
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-color: #000000; /* Text color in light and dark mode */
+  --background-color: #f3f4f6; /* Background color in light mode */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-color: #000000; /* Text color in dark mode */
+    --background-color: #f3f4f6; /* Background color in dark mode */
+  }
+}
+
+body {
+  color: var(--foreground-color);
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* main {
+  padding-top: 60px;
+} */
+
+.dark body {
+  color: #000000;
+  background-color: #101827;
+}
+
+.leaflet-container {
+  width: 100% !important;
+  height: 400px !important;
+}
+
+----------------------------------------
+
+// src/app/layout.tsx:
+
+import React from 'react';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Header from '../components/Header';
+import { cookies } from 'next/headers';
+import { getSessionByToken } from '../../database/sessions';
+import { getUserById } from '../../database/users';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Townwall',
+  description: 'Connect with people locally',
+};
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  let username = '';
+  if (sessionToken) {
+    const session = await getSessionByToken(sessionToken.value);
+    if (session) {
+      const user = await getUserById(session.userId);
+      username = user.username;
+    }
+  }
+
+  return (
+    <html lang="en">
+      <head>
+        <link rel="icon" href="/images/favicon.ico" sizes="any" />
+      </head>
+      <body className={`${inter.className} pt-16`}>
+        <Header username={username} />
+        <main className="main-content">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+----------------------------------------
+
+// src/app/middleware.ts:
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { getSessionByToken } from '../../database/sessions';
+import { getUserById } from '../../database/users';
+
+export async function middleware(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.redirect('/login');
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.redirect('/login');
+  }
+
+  const user = await getUserById(session.userId);
+
+  const pathname = request.nextUrl.pathname;
+
+  // Check if the user is trying to access the profile of another user
+  const editProfileMatch = pathname.match(/^\/profile\/edit$/);
+  if (editProfileMatch && user.id !== session.userId) {
+    return NextResponse.redirect(`/profile/${user.username}`);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/profile/:path*'], // Protected routes
+};
+
+----------------------------------------
+
+// src/app/page.tsx:
+
+import React from 'react';
+import HomeContent from './HomeContent';
+import IntroContent from './IntroContent';
+
+const Home: React.FC = () => {
+  return (
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+        <IntroContent />
+      </div>
+      <div className="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+        <HomeContent />
+      </div>
+    </div>
+  );
+};
+
+export default Home;
+
+----------------------------------------
+
+// src/app/posts/[username]/new/NewPostForm.tsx:
+
+// src/app/posts/[username]/new/NewPostForm.tsx:
+
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type UserType = {
+  id: number;
+  username: string;
+};
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryIds: string[] | null; // Ajuste aquí
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+function generateSlug(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function NewPostForm({ user }: { user: UserType }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+  const router = useRouter();
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const slug = generateSlug(title);
+
+    try {
+      // Verifica que categories sea un array
+      const categoriesArray = Array.isArray(categories) ? categories : [];
+
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user.id,
+          title,
+          content,
+          slug,
+          categoryNames: categoriesArray,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const post: PostType = await response.json();
+        router.push(`/posts/${user.username}/${post.slug}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create post');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  function handleAddCategory() {
+    const titleCaseCategory = toTitleCase(newCategory);
+
+    if (
+      newCategory &&
+      categories.length < 7 &&
+      !categories.includes(titleCaseCategory)
+    ) {
+      setCategories([...categories, titleCaseCategory]);
+      setNewCategory('');
+    } else if (categories.includes(titleCaseCategory)) {
+      setError('Category already added');
+    }
+  }
+
+  function handleRemoveCategory(categoryToRemove: string) {
+    setCategories(
+      categories.filter((category) => category !== categoryToRemove),
+    );
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+    });
+  }
+
+  return (
+    <div className="flex items-center justify-center mt-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Create a New Post
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {!!error && <p className="text-red-500 text-center">{error}</p>}
+          <div>
+            <label
+              htmlFor="title"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Title
+            </label>
+            <input
+              id="title"
+              name="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Write the title here"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="content"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Content
+            </label>
+            <textarea
+              id="content"
+              name="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your post here"
+              required
+              className="mt-1 block w-full h-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="categories"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Categories
+            </label>
+            <div className="flex space-x-2">
+              <input
+                id="newCategory"
+                name="newCategory"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Add a new category"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium
+                text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Add
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {categories.map((category) => (
+                <span
+                  key={`category-${category}`}
+                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                >
+                  {category}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCategory(category)}
+                    className="ml-2 text-gray-500 hover:text-gray-700"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <button className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Add Post
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/new/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import NewPostForm from './NewPostForm';
+
+export default async function NewPostPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <NewPostForm user={user} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../database/users';
+import { getSessionByToken } from '../../../../database/sessions';
+import { getPostsByUserId } from '../../../../database/posts';
+
+export default async function UserPostsPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const posts = await getPostsByUserId(user.id);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-4xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
+          Posts by {user.username}
+        </h1>
+        {posts.length > 0 ? (
+          <ul>
+            {posts.map((post) => (
+              <li key={`post-${post.id}`} className="mb-4">
+                <a
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-600 hover:underline"
+                >
+                  {post.title}
+                </a>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            Loading...
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/[slug]/PostClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+};
+
+type CategoryType = {
+  id: number;
+  categoryName: string;
+};
+
+export default function PostClient({ post }: { post: any }) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/comments?postId=${post.id}`)
+      .then((response) => response.json())
+      .then((data) => setComments(data))
+      .catch((err) => setError('Failed to fetch comments'));
+  }, [post.id]);
+
+  const handleCommentSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        body: JSON.stringify({ postId: post.id, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err) {
+      setError('Failed to add comment');
+    }
+  };
+
+  return (
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          {post.title}
+        </h1>
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          By{' '}
+          <a
+            href={`/profile/${post.author}/public`}
+            className="text-blue-700 dark:text-blue-400"
+          >
+            {post.author}
+          </a>{' '}
+          on {new Date(post.createdAt).toLocaleDateString()}
+          {post.categories && post.categories.length > 0 && (
+            <span className="ml-2 inline-block text-sm text-gray-500 dark:text-gray-400">
+              {post.categories.map((category: CategoryType) => (
+                <span
+                  key={`category-${category.id}`}
+                  className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                >
+                  {category.categoryName}
+                </span>
+              ))}
+            </span>
+          )}
+        </p>
+        <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
+
+        <hr className="my-4 border-gray-300 dark:border-gray-600" />
+
+        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
+          Comments
+        </h2>
+
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500">
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                <a
+                  href={`/profile/${comment.username}/public`}
+                  className="text-blue-700 dark:text-blue-400 hover:text-sky-800"
+                >
+                  {comment.username}
+                </a>
+              </small>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={handleCommentSubmit} className="space-y-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Submit
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/posts/[username]/[slug]/page.tsx:
+
+import { cookies } from 'next/headers';
+import { getPostByUserAndSlug } from '../../../../../database/posts';
+import { getPostCategories } from '../../../../../database/categories';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PostClient from './PostClient';
+import React from 'react';
+
+export default async function PostPage({
+  params,
+}: {
+  params: { username: string; slug: string };
+}) {
+  const { username, slug } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const post = await getPostByUserAndSlug(username, slug);
+
+  if (!post) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Post not found</p>
+      </div>
+    );
+  }
+
+  // Get posts categories
+  const categories = await getPostCategories(post.id);
+
+  // Include the author's username and categories in the post data
+  post.author = username;
+  post.categories = categories;
+
+  return <PostClient post={post} />;
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/followers/FollowersList.tsx:
+
+// src/app/profile/[username]/followers/FollowersList.tsx
+
+'use client';
+
+import React from 'react';
+
+type UserType = {
+  email: string;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
+
+type FollowersListProps = {
+  followers: UserType[];
+  error: string | null;
+};
+
+const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Users Following You
+        </h1>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {followers.length > 0 ? (
+            followers.map((user) => (
+              <li
+                key={`user-${user.id}`}
+                className="flex items-center space-x-4 mb-4"
+              >
+                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
+                <div>
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+                    <a href={`/profile/${user.username}/public`}>
+                      {user.username}
+                    </a>
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    {user.email}
+                  </p>
+                </div>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No one is following you.
+            </p>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default FollowersList;
+
+----------------------------------------
+
+// src/app/profile/[username]/followers/page.tsx:
+
+// src/app/profile/[username]/followers/page.tsx
+
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import FollowersList from './FollowersList';
+
+type UserType = {
+  email: string;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
+
+export default function FollowersPage() {
+  const [followers, setFollowers] = useState<UserType[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFollowers = async () => {
+      try {
+        const response = await fetch('/api/followers');
+        if (!response.ok) {
+          throw new Error('Failed to fetch followers');
+        }
+        const data = await response.json();
+        setFollowers(data);
+      } catch (error: any) {
+        setError(error.message);
+      }
+    };
+
+    fetchFollowers();
+  }, []);
+
+  return <FollowersList followers={followers} error={error} />;
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/edit/EditProfileForm.tsx:
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
+
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
+  const [error, setError] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [newInterest, setNewInterest] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+    setInterests(user.interests ? user.interests.split(',') : []);
+  }, [user]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...formData,
+          interests: JSON.stringify(interests),
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setFormData(updatedUser.user);
+        router.push(
+          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
+        );
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      const response = await fetch('/api/delete', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        router.push('/register');
+      } else {
+        throw new Error('Failed to delete user');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const { name, value } = event.target;
+    setFormData((prevData: any) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }
+
+  function handleEmojiClick() {
+    setShowEmojiPicker(!showEmojiPicker);
+  }
+
+  function handleEmojiSelect(emoji: string) {
+    setFormData((prevData: any) => ({
+      ...prevData,
+      userImage: emoji,
+    }));
+    setShowEmojiPicker(false);
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+    });
+  }
+
+  async function handleAddInterest() {
+    const titleCaseInterest = toTitleCase(newInterest);
+
+    if (
+      newInterest &&
+      interests.length < 7 &&
+      !interests.includes(titleCaseInterest)
+    ) {
+      const response = await fetch('/api/interests', {
+        method: 'POST',
+        body: JSON.stringify({ categoryName: titleCaseInterest }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInterests(data.categories.map((cat: any) => cat.categoryName));
+        setNewInterest('');
+      } else {
+        setError('Failed to add interest');
+      }
+    } else if (interests.includes(titleCaseInterest)) {
+      setError('Interest already added');
+    }
+  }
+
+  async function handleRemoveInterest(interestToRemove: string) {
+    try {
+      const response = await fetch('/api/interests', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          categoryName: interestToRemove,
+          userId: user.id,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove interest');
+      }
+
+      setInterests(
+        interests.filter((interest) => interest !== interestToRemove),
+      );
+    } catch (error) {
+      setError('Failed to remove interest');
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Edit My Profile
+        </h1>
+        <div className="text-center">
+          <button
+            className="text-9xl cursor-pointer"
+            onClick={handleEmojiClick}
+            tabIndex={0}
+          >
+            {formData.userImage}
+          </button>
+          <p className="text-gray-500 text-sm">Click on image to change</p>
+          {showEmojiPicker && (
+            <div className="mt-2 flex flex-wrap justify-center space-x-2">
+              {animalEmojis.map((emoji) => (
+                <button
+                  key={`emoji-${emoji}`}
+                  className="text-2xl cursor-pointer"
+                  onClick={() => handleEmojiSelect(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-800 p-6 rounded-md mx-auto"
+        >
+          <div>
+            <label
+              htmlFor="fullName"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Full Name
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="description"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Description
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder={
+                formData.description ? '' : 'Enter a description of yourself'
+              }
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="interests"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Interests
+            </label>
+            <div className="flex space-x-2">
+              <input
+                id="newInterest"
+                name="newInterest"
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                placeholder="Add a new interest"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddInterest}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Add
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {interests.map((interest) => (
+                <span
+                  key={`interest-${interest}`}
+                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                >
+                  {interest}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInterest(interest)}
+                    className="ml-2 text-gray-500 hover:text-gray-700"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor="profileLinks"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Personal Links
+            </label>
+            <input
+              id="profileLinks"
+              name="profileLinks"
+              value={formData.profileLinks}
+              onChange={handleChange}
+              placeholder={
+                formData.profileLinks ? '' : 'Enter your personal links'
+              }
+              className="mt-1 block w-full px-3 py-2 border               border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="birthdate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Birth Date
+            </label>
+            <input
+              id="birthdate"
+              name="birthdate"
+              type="date"
+              value={formData.birthdate}
+              onChange={handleChange}
+              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profession"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Profession
+            </label>
+            <input
+              id="profession"
+              name="profession"
+              value={formData.profession}
+              onChange={handleChange}
+              placeholder={formData.profession ? '' : 'Enter your profession'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div className="flex justify-center space-x-4">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete User
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/edit/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { getUserById } from '../../../../../database/users';
+import EditProfileForm from './EditProfileForm';
+
+export default async function EditProfilePage() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  const userProfile = {
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName || '',
+    description: user.description || '',
+    interests: user.interests || '',
+    profileLinks: user.profileLinks || '',
+    userImage: user.userImage || '',
+    location: user.location || '',
+    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
+    profession: user.profession || '',
+  };
+
+  return (
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <EditProfileForm user={userProfile} />
+    </div>
+  );
 }
 
 ----------------------------------------
@@ -472,62 +2793,6 @@ export default function CommentsPage({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PublicPageClient from './PublicPageClient';
-
-export default async function PublicProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  const loggedInUserId = sessionToken
-    ? (await getSessionByToken(sessionToken.value))?.userId
-    : null;
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
-  };
-
-  return (
-    <div>
-      <PublicPageClient
-        user={userProfile}
-        loggedInUserId={loggedInUserId ?? null}
-      />
     </div>
   );
 }
@@ -693,7 +2958,7 @@ export default function Wall({
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await fetch(`/api/profile/${user.id}/comments`);
+        const response = await fetch(`/api/profile/${user.username}/comments`);
         if (!response.ok) {
           throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
@@ -709,7 +2974,7 @@ export default function Wall({
     };
 
     fetchComments();
-  }, [user.id]);
+  }, [user.username]);
 
   const handleCommentSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -717,9 +2982,9 @@ export default function Wall({
     event.preventDefault();
 
     try {
-      const response = await fetch(`/api/profile/${user.id}/comments`, {
+      const response = await fetch(`/api/profile/${user.username}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ profileId: user.id, content: newComment }),
+        body: JSON.stringify({ content: newComment }),
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -762,19 +3027,14 @@ export default function Wall({
       )}
       {!!user.interests && user.interests.trim() !== 'null' && (
         <div className="text-center text-gray-700 dark:text-gray-300">
-          {/* <h3 className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Interests
-          </h3> */}
-          <div className="text-center text-gray-700 dark:text-gray-300">
-            {user.interests.split(',').map((interest) => (
-              <span
-                key={`interest-${interest}`}
-                className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-              >
-                {interest}
-              </span>
-            ))}
-          </div>
+          {user.interests.split(',').map((interest) => (
+            <span
+              key={`interest-${interest}`}
+              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+            >
+              {interest}
+            </span>
+          ))}
         </div>
       )}
 
@@ -788,7 +3048,6 @@ export default function Wall({
       )}
       {!!user.location && (
         <div className="w-full">
-          {/* <Map latitude={user.location.y} longitude={user.location.x} /> */}
           {!!location && (
             <p className="text-center text-gray-700 dark:text-gray-300">
               <span className="text-sky-800 font-bold dark:text-sky-600">
@@ -882,6 +3141,1002 @@ export default function Wall({
     </div>
   );
 }
+
+----------------------------------------
+
+// src/app/profile/[username]/public/Posts.tsx:
+
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export default function Posts({
+  posts,
+  username,
+}: {
+  posts: PostType[];
+  username: string;
+}) {
+  return (
+    <div className="w-full space-y-6">
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        {username}'s Posts
+      </h2>
+      <ul>
+        {posts.length > 0 ? (
+          posts.map((post) => (
+            <li key={`post-${post.id}`} className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href={`/posts/${username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                >
+                  {post.title}
+                </Link>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.createdAt
+                    ? new Date(post.createdAt).toLocaleDateString()
+                    : ''}
+                </span>
+              </div>
+              <p className="text-gray-700 dark:text-gray-300">
+                {post.content.slice(0, 100)}...
+              </p>
+            </li>
+          ))
+        ) : (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            No posts yet
+          </p>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PublicPageClient from './PublicPageClient';
+
+export default async function PublicProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  const loggedInUserId = sessionToken
+    ? (await getSessionByToken(sessionToken.value))?.userId
+    : null;
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <PublicPageClient
+        user={userProfile}
+        loggedInUserId={loggedInUserId ?? null}
+      />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/following/FollowingList.tsx:
+
+'use client';
+
+import React, { ReactNode } from 'react';
+
+type UserType = {
+  email: ReactNode;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
+
+type FollowingListProps = {
+  following: UserType[];
+  error: string | null;
+};
+
+const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Users You Follow
+        </h1>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul>
+          {following.length > 0 ? (
+            following.map((user) => (
+              <li
+                key={`user-${user.id}`}
+                className="flex items-center space-x-4 mb-4"
+              >
+                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
+                <div>
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+                    <a href={`/profile/${user.username}/public`}>
+                      {user.username}
+                    </a>
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    {user.email}
+                  </p>
+                </div>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              You are not following anyone.
+            </p>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+export default FollowingList;
+
+----------------------------------------
+
+// src/app/profile/[username]/following/page.tsx:
+
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import FollowingList from './FollowingList';
+
+type UserType = {
+  email: React.ReactNode;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
+
+export default function FollowingPage() {
+  const [following, setFollowing] = useState<UserType[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFollowing = async () => {
+      try {
+        const response = await fetch('/api/following');
+        if (!response.ok) {
+          throw new Error('Failed to fetch following users');
+        }
+        const data = await response.json();
+        setFollowing(data);
+      } catch (error: any) {
+        setError(error.message);
+      }
+    };
+
+    fetchFollowing();
+  }, []);
+
+  return <FollowingList following={following} error={error} />;
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/UserFriends.tsx:
+
+'use client';
+
+import React from 'react';
+import dynamic from 'next/dynamic';
+
+interface MapProps {
+  latitude: number;
+  longitude: number;
+  height: string;
+}
+
+const MapComponent = dynamic(
+  () => import('../../../../components/MapComponent'),
+  {
+    ssr: false,
+  },
+);
+
+async function fetchFriends(userId: number) {
+  const response = await fetch(`/api/friends?userId=${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch friends');
+  }
+  const data = await response.json();
+  return data;
+}
+
+export default function UserFriends({
+  user,
+}: {
+  user: {
+    id: number;
+    username: string;
+    location?: { x: number; y: number } | null;
+  };
+}) {
+  const [friends, setFriends] = React.useState<
+    { id: number; username: string; location: string }[]
+  >([]);
+
+  React.useEffect(() => {
+    fetchFriends(user.id).then(setFriends).catch(console.error);
+  }, [user.id]);
+
+  return (
+    <div className="w-full space-y-6">
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        My Friends
+      </h2>
+      <div className="flex space-x-4 justify-center">
+        <button
+          onClick={() =>
+            (window.location.href = `/profile/${user.username}/following`)
+          }
+          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        >
+          Followed Friends
+        </button>
+        <button
+          onClick={() =>
+            (window.location.href = `/profile/${user.username}/followers`)
+          }
+          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        >
+          My Followers
+        </button>
+      </div>
+
+      <h3 className="text-lg text-center text-gray-900 dark:text-white">
+        Nearby friends
+      </h3>
+      {!!user.location && (
+        <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
+          <MapComponent
+            latitude={user.location.y || 0}
+            longitude={user.location.x || 0}
+            markers={friends}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/UserPosts.tsx:
+
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export default function UserPosts({
+  user,
+  posts,
+  handleNewPost,
+}: {
+  user: { username: string };
+  posts: PostType[];
+  handleNewPost: () => void;
+}) {
+  return (
+    <div className="w-full space-y-4">
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        My Posts
+      </h2>
+      <ul>
+        {posts.length > 0 ? (
+          posts.map((post) => (
+            <li key={`post-${post.id}`} className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href={`/posts/${user.username}/${post.slug}`}
+                  className="text-xl font-semibold text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                >
+                  {post.title}
+                </Link>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {post.createdAt
+                    ? new Date(post.createdAt).toLocaleDateString()
+                    : ''}
+                </span>
+              </div>
+              <p className="text-gray-700 dark:text-gray-300">
+                {post.content.slice(0, 100)}...
+              </p>
+            </li>
+          ))
+        ) : (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            No posts yet
+          </p>
+        )}
+      </ul>
+
+      <div className="flex justify-center">
+        <button
+          onClick={handleNewPost}
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          Add New Post
+        </button>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/UserProfile.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
+};
+
+export default function UserProfile({
+  user,
+  location,
+  error,
+  handleLogout,
+}: {
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  location: { city: string; country: string } | null;
+  error: string | null;
+  handleLogout: () => void;
+}) {
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(`/api/profile/${user.id}/comments`);
+        if (response.ok) {
+          const profileComments = await response.json();
+          setComments(profileComments);
+        } else {
+          setFetchError('Failed to fetch comments');
+        }
+      } catch (err) {
+        setFetchError('Failed to fetch comments');
+      }
+    };
+
+    fetchComments();
+  }, [user.id]);
+
+  return (
+    <div className="w-full space-y-6">
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        My Wall
+      </h2>
+      <div className="text-center mx-auto">
+        <span className="text-9xl">{user.userImage}</span>
+      </div>
+      <p className="text-center text-gray-700 dark:text-gray-300">
+        <span className="text-sky-800 font-bold dark:text-sky-600">
+          Username:{' '}
+        </span>
+        {user.username}
+      </p>
+      <p className="text-center text-gray-700 dark:text-gray-300">
+        <span className="text-sky-800 font-bold dark:text-sky-600">
+          Email:{' '}
+        </span>
+        {user.email}
+      </p>
+      {!!user.fullName && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Full Name:{' '}
+          </span>
+          {user.fullName}
+        </p>
+      )}
+      {!!user.description && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Description:{' '}
+          </span>
+          {user.description}
+        </p>
+      )}
+      {!!user.interests && (
+        <div className="text-center text-gray-700 dark:text-gray-300">
+          {/* <span className="text-sky-800 font-bold dark:text-sky-600">
+            Interests:{' '}
+          </span> */}
+          {user.interests.split(',').map((interest, index, arr) => (
+            <span
+              key={`interest-${interest}`}
+              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+            >
+              {interest}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {!!user.profileLinks && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Profile Links:{' '}
+          </span>
+          {user.profileLinks}
+        </p>
+      )}
+      {!!location && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Location:{' '}
+          </span>
+          {location.city}, {location.country}
+        </p>
+      )}
+      {!!user.birthdate && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Birthdate:{' '}
+          </span>
+          {user.birthdate}
+        </p>
+      )}
+      {!!user.profession && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Profession:{' '}
+          </span>
+          {user.profession}
+        </p>
+      )}
+      {!!error && <p className="text-red-500 text-center">{error}</p>}
+      <div className="flex space-x-4 justify-center">
+        <button
+          onClick={() =>
+            (window.location.href = `/profile/${user.username}/edit`)
+          }
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        >
+          Edit Profile
+        </button>
+        <button
+          onClick={handleLogout}
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Sign Out
+        </button>
+      </div>
+      <hr className="my-8 border-gray-300 dark:border-gray-600" />
+      <div className="w-full space-y-4">
+        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Comments
+        </h2>
+        <div className="space-y-2">
+          {comments.length === 0 ? (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No comments yet
+            </p>
+          ) : (
+            comments.map((comment) => (
+              <div
+                key={comment.id}
+                className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+              >
+                <p className="text-gray-700 dark:text-gray-300">
+                  {comment.content}
+                </p>
+                <small className="text-gray-500 dark:text-gray-400">
+                  {new Date(comment.createdAt).toLocaleString()} by{' '}
+                  <a
+                    href={`/profile/${comment.username}/public`}
+                    className="text-sky-800 font-bold dark:text-sky-600 hover:text-indigo-800"
+                  >
+                    {comment.username}
+                  </a>
+                </small>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/PrivatePageClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { getCityAndCountry } from '../../../../../util/geocode';
+import UserProfile from './UserProfile';
+import UserPosts from './UserPosts';
+import UserFriends from './UserFriends';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+type LocationType = {
+  city: string;
+  country: string;
+};
+
+export default function PrivatePageClient({
+  user,
+  loggedInUserId,
+}: {
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  loggedInUserId: number | null;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [location, setLocation] = useState<LocationType | null>(null);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch(`/api/posts/user/${user.id}`);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      } catch (err) {
+        setError('Failed to fetch posts');
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
+
+  useEffect(() => {
+    if (user.location) {
+      getCityAndCountry(user.location.y, user.location.x)
+        .then((loc) => setLocation(loc))
+        .catch((err) => setError('Failed to fetch location data'));
+    }
+  }, [user.location]);
+
+  async function handleLogout() {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+    });
+
+    if (response.ok) {
+      window.location.href = '/login'; // Redirect to login page after logout
+    } else {
+      setError('Failed to log out');
+    }
+  }
+
+  function handleNewPost() {
+    window.location.href = `/posts/${user.username}/new`;
+  }
+
+  return (
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full md:w-1/2 p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
+        <UserProfile
+          user={user}
+          location={location}
+          error={error}
+          handleLogout={handleLogout}
+        />
+      </div>
+      <div className="w-full md:w-1/2 flex flex-col space-y-8">
+        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
+          <UserPosts user={user} posts={posts} handleNewPost={handleNewPost} />
+        </div>
+        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
+          <UserFriends user={user} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/[slug]/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PrivatePageClient from './PrivatePageClient';
+import Link from 'next/link';
+
+export default async function ProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  if (!sessionToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken.value);
+  const loggedInUserId = session ? session.userId : null;
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">You are not logged in</p>
+      </div>
+    );
+  }
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  if (session.userId !== user.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">Access denied</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/search/NearbyUsersMap.tsx:
+
+'use client';
+
+import React from 'react';
+import dynamic from 'next/dynamic';
+
+const MapComponent = dynamic(() => import('../../components/MapComponent'), {
+  ssr: false,
+});
+
+type NearbyUsersMapProps = {
+  latitude: number;
+  longitude: number;
+  markers: { id: number; username: string; location: string }[];
+};
+
+const NearbyUsersMap: React.FC<NearbyUsersMapProps> = ({
+  latitude,
+  longitude,
+  markers,
+}) => {
+  return (
+    <div className="w-full space-y-6">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        Nearby Users
+      </h1>
+      <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
+        <MapComponent
+          latitude={latitude}
+          longitude={longitude}
+          markers={markers}
+          zoom={12}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default NearbyUsersMap;
+
+----------------------------------------
+
+// src/app/search/SearchComponent.tsx:
+
+// src/app/search/SearchComponent.tsx
+
+'use client';
+
+import React, { useState } from 'react';
+
+type UserType = {
+  id: number;
+  username: string;
+  userImage: string | null;
+  icon: string | null;
+  location: string | null;
+};
+
+export default function SearchComponent() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<UserType[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const response = await fetch(
+        `/api/search?query=${encodeURIComponent(query)}`,
+      );
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const data = await response.json();
+      setResults(data);
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  return (
+    <div className="w-full space-y-6">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        Search Users
+      </h1>
+      <form onSubmit={handleSearch} className="space-y-6">
+        <div>
+          <label
+            htmlFor="query"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Search by username or location
+          </label>
+          <input
+            id="query"
+            name="query"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter username or location"
+            required
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+          />
+        </div>
+        <div className="flex justify-center">
+          <button className="w-1/3 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+            Search
+          </button>
+        </div>
+      </form>
+      {!!error && <p className="text-red-500 text-center">{error}</p>}
+      <ul className="space-y-4">
+        {results.map((user) => (
+          <li key={`user-${user.id}`} className="flex items-center space-x-4">
+            <div className="h-15 w-15 rounded-full">{user.userImage}</div>
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                <a href={`/profile/${user.username}/public`}>{user.username}</a>
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-300">
+                {user.location ? user.location : 'Location not available'}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/search/page.tsx:
+
+import React from 'react';
+import SearchClient from './SearchClient';
+
+export default function Page() {
+  return <SearchClient />;
+}
+
+----------------------------------------
+
+// src/app/search/SearchClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import SearchComponent from './SearchComponent';
+import NearbyUsersMap from './NearbyUsersMap';
+
+export default function SearchClient() {
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]); // Use appropriate type for users
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error('Error obtaining geolocation', error);
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (location) {
+      fetch(
+        `/api/search/nearby?latitude=${location.latitude}&longitude=${location.longitude}&radius=10`,
+      )
+        .then((response) => response.json())
+        .then((data) => setNearbyUsers(data))
+        .catch((error) => console.error('Error fetching nearby users', error));
+    }
+  }, [location]);
+
+  return (
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+        <SearchComponent />
+      </div>
+      {location && nearbyUsers.length > 0 && (
+        <div className="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-8 flex justify-center">
+          <NearbyUsersMap
+            latitude={location.latitude}
+            longitude={location.longitude}
+            markers={nearbyUsers}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/testpage/page.tsx:
+
+import React from 'react';
+
+const TestPage = () => {
+  return <div>Test Page</div>;
+};
+
+export default TestPage;
 
 ----------------------------------------
 

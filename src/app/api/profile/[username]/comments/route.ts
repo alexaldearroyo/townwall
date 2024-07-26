@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error adding comment:', error);
     return NextResponse.json(
-      { error: `Failed to add comment: ${error.message}` },
+      { error: `Failed to add comment: ${(error as Error).message}` },
       { status: 500 },
     );
   }
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching comments:', error);
     return NextResponse.json(
-      { error: `Failed to fetch comments: ${error.message}` },
+      { error: `Failed to fetch comments: ${(error as any).message}` },
       { status: 500 },
     );
   }

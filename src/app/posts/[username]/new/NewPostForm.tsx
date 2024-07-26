@@ -1,3 +1,5 @@
+// src/app/posts/[username]/new/NewPostForm.tsx:
+
 'use client';
 
 import React, { useState } from 'react';
@@ -14,7 +16,7 @@ type PostType = {
   icon: string | null;
   title: string;
   content: string;
-  categoryId: string | null;
+  categoryIds: string[] | null; // Ajuste aquí
   createdAt: Date | null;
   updatedAt: Date | null;
   slug: string;
@@ -41,24 +43,6 @@ export default function NewPostForm({ user }: { user: UserType }) {
       // Verifica que categories sea un array
       const categoriesArray = Array.isArray(categories) ? categories : [];
 
-      // Añadir nuevas categorías antes de crear el post
-      const newCategoryResponses = await Promise.all(
-        categoriesArray.map(async (categoryName) => {
-          const response = await fetch('/api/categories', {
-            method: 'POST',
-            body: JSON.stringify({ categoryName, description: '' }),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          const jsonResponse = await response.json();
-          if (!jsonResponse.category || !jsonResponse.category.id) {
-            throw new Error('Invalid category response');
-          }
-          return jsonResponse.category.id;
-        }),
-      );
-
       const response = await fetch('/api/posts', {
         method: 'POST',
         body: JSON.stringify({
@@ -66,7 +50,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
           title,
           content,
           slug,
-          categoryIds: newCategoryResponses,
+          categoryNames: categoriesArray,
         }),
         headers: {
           'Content-Type': 'application/json',
