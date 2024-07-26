@@ -3,13 +3,18 @@
 import React from 'react';
 import Link from 'next/link';
 
+type CategoryType = {
+  id: number;
+  categoryName: string;
+};
+
 type PostType = {
   id: number;
   userId: number;
   icon: string | null;
   title: string;
   content: string;
-  categoryId: string | null;
+  categories: CategoryType[];
   createdAt: Date | null;
   updatedAt: Date | null;
   slug: string;
@@ -38,6 +43,18 @@ export default function Posts({
                 >
                   {post.title}
                 </Link>
+                {post.categories && post.categories.length > 0 && (
+                  <div className="mt-2">
+                    {post.categories.map((category) => (
+                      <span
+                        key={`category-${category.id}`}
+                        className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                      >
+                        {category.categoryName}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {post.createdAt
                     ? new Date(post.createdAt).toLocaleDateString()
