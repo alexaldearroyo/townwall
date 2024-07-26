@@ -291,7 +291,8 @@ export default function EditProfileForm({ user }: { user: any }) {
               <button
                 type="button"
                 onClick={handleAddInterest}
-                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                className="py-2 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                style={{ height: 'calc(2rem + 2px)' }}
               >
                 Add
               </button>
