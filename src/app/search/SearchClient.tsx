@@ -9,7 +9,7 @@ export default function SearchClient() {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]); // Use appropriate type for users
+  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(

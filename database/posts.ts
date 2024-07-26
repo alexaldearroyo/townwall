@@ -179,3 +179,38 @@ export async function createPost(
 
   return { ...post, createdAt, updatedAt };
 }
+
+export async function getPostsByCategory(categoryId: number): Promise<Post[]> {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+      author: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug,
+      u.username AS "author"
+    FROM
+      posts p
+      JOIN posts_categories pc ON p.id = pc.post_id
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      pc.category_id = ${categoryId}
+  `;
+
+  return posts;
+}

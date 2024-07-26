@@ -1,5 +1,3 @@
-// src/app/search/SearchComponent.tsx
-
 'use client';
 
 import React, { useState } from 'react';
@@ -8,13 +6,29 @@ type UserType = {
   id: number;
   username: string;
   userImage: string | null;
-  icon: string | null;
   location: string | null;
+};
+
+type PostType = {
+  id: number;
+  userId: number;
+  title: string;
+  content: string;
+  slug: string;
+  author: string;
+};
+
+type SearchResults = {
+  users: UserType[];
+  posts: PostType[];
 };
 
 export default function SearchComponent() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<UserType[]>([]);
+  const [results, setResults] = useState<SearchResults>({
+    users: [],
+    posts: [],
+  });
   const [error, setError] = useState<string | null>(null);
 
   async function handleSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -38,7 +52,7 @@ export default function SearchComponent() {
   return (
     <div className="w-full space-y-6">
       <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        Search Users
+        Search by Category
       </h1>
       <form onSubmit={handleSearch} className="space-y-6">
         <div>
@@ -46,14 +60,14 @@ export default function SearchComponent() {
             htmlFor="query"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Search by username or location
+            Enter a category
           </label>
           <input
             id="query"
             name="query"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter username or location"
+            placeholder="Enter category"
             required
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
           />
@@ -65,21 +79,49 @@ export default function SearchComponent() {
         </div>
       </form>
       {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <ul className="space-y-4">
-        {results.map((user) => (
-          <li key={`user-${user.id}`} className="flex items-center space-x-4">
-            <div className="h-15 w-15 rounded-full">{user.userImage}</div>
-            <div>
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                <a href={`/profile/${user.username}/public`}>{user.username}</a>
+      <div>
+        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white">
+          Users
+        </h2>
+        <ul className="space-y-4">
+          {results.users.map((user) => (
+            <li key={`user-${user.id}`} className="flex items-center space-x-4">
+              <div className="h-15 w-15 rounded-full">{user.userImage}</div>
+              <div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  <a href={`/profile/${user.username}/public`}>
+                    {user.username}
+                  </a>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-300">
+                  {user.location ? user.location : 'Location not available'}
+                </div>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-300">
-                {user.location ? user.location : 'Location not available'}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white">
+          Posts
+        </h2>
+        <ul className="space-y-4">
+          {results.posts.map((post) => (
+            <li key={`post-${post.id}`} className="flex items-center space-x-4">
+              <div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  <a href={`/posts/${post.author}/${post.slug}`}>
+                    {post.title}
+                  </a>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-300">
+                  {post.content.slice(0, 100)}...
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

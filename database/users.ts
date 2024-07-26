@@ -501,3 +501,31 @@ export async function getUserByUsernameOrEmail(
 
   return user;
 }
+
+export async function getUsersByCategory(categoryId: number): Promise<User[]> {
+  const users = await sql<User[]>`
+    SELECT
+      u.id,
+      u.username,
+      u.user_image AS "userImage",
+      u.email,
+      u.full_name AS "fullName",
+      u.description,
+      u.interests,
+      u.profile_links AS "profileLinks",
+      st_astext (u.location) AS location,
+      u.birthdate,
+      u.profession,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      u.profile_id AS "profileId",
+      u.slug
+    FROM
+      users u
+      JOIN users_categories uc ON u.id = uc.user_id
+    WHERE
+      uc.category_id = ${categoryId}
+  `;
+
+  return users;
+}

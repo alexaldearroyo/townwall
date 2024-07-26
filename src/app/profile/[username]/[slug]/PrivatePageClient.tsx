@@ -6,13 +6,18 @@ import UserProfile from './UserProfile';
 import UserPosts from './UserPosts';
 import UserFriends from './UserFriends';
 
+type CategoryType = {
+  id: number;
+  categoryName: string;
+};
+
 type PostType = {
   id: number;
   userId: number;
   icon: string | null;
   title: string;
   content: string;
-  categoryId: string | null;
+  categories: CategoryType[];
   createdAt: Date | null;
   updatedAt: Date | null;
   slug: string;
