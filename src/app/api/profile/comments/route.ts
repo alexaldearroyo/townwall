@@ -3,8 +3,7 @@ import { getSessionByToken } from '../../../../../database/sessions';
 import {
   createProfileComment,
   getCommentsByProfileUserId,
-} from '../../../../../database/comments';
-import { sql } from '../../../../../database/connect';
+} from '../../../../../database/profiles_comments'; // Cambiado
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +57,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
+  const comments = await getCommentsByProfileUserId(parseInt(profileId, 10)); // Cambiado
   return NextResponse.json(comments);
 }

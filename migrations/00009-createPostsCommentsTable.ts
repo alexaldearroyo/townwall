@@ -4,13 +4,14 @@ export async function up(sql: Sql) {
   await sql`
     CREATE TABLE posts_comments (
       id serial PRIMARY KEY,
-      profile_id bigint NOT NULL REFERENCES posts (id),
-      comment_id bigint NOT NULL REFERENCES comments (id),
-      commenter_id bigint NOT NULL REFERENCES users (id)
+      post_id int NOT NULL REFERENCES posts (id),
+      user_id int NOT NULL REFERENCES users (id),
+      content text NOT NULL,
+      created_at timestamp DEFAULT CURRENT_TIMESTAMP
     )
   `;
 }
 
 export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_comments`;
+  await sql`DROP TABLE IF EXISTS posts_comments`;
 }

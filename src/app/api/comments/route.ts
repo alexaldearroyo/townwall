@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../database/sessions';
 import {
-  createComment,
+  createPostComment,
   getCommentsByPostId,
-} from '../../../../database/comments';
+} from '../../../../database/posts_comments'; // Cambiado
 
 export async function POST(request: NextRequest) {
   const sessionToken = request.cookies.get('session')?.value;
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const comment = await createComment(postId, session.userId, content);
+  const comment = await createPostComment(postId, session.userId, content); // Cambiado
   return NextResponse.json(comment, { status: 201 });
 }
 
@@ -41,6 +41,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
   }
 
-  const comments = await getCommentsByPostId(parseInt(postId, 10));
+  const comments = await getCommentsByPostId(parseInt(postId, 10)); // Cambiado
   return NextResponse.json(comments);
 }
