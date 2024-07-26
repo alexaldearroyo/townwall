@@ -133,7 +133,7 @@ export default function Wall({
       </div>
       {!!user.fullName && user.fullName.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Full Name:{' '}
           </span>
           {user.fullName}
@@ -141,7 +141,7 @@ export default function Wall({
       )}
       {!!user.description && user.description.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Description:{' '}
           </span>
           {user.description}
@@ -167,7 +167,7 @@ export default function Wall({
 
       {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Links:{' '}
           </span>
           {user.profileLinks}
@@ -178,7 +178,7 @@ export default function Wall({
           {/* <Map latitude={user.location.y} longitude={user.location.x} /> */}
           {!!location && (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              <span className="text-blue-900 font-bold dark:text-blue-400">
+              <span className="text-sky-800 font-bold dark:text-sky-600">
                 Location:{' '}
               </span>
               {location.city}, {location.country}
@@ -188,7 +188,7 @@ export default function Wall({
       )}
       {!!user.birthdate && user.birthdate.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Birthdate:{' '}
           </span>
           {user.birthdate}
@@ -196,7 +196,7 @@ export default function Wall({
       )}
       {!!user.profession && user.profession.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Profession:{' '}
           </span>
           {user.profession}
@@ -238,7 +238,7 @@ export default function Wall({
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                  className="text-blue-700 dark:text-sky-600 hover:text-indigo-800"
                 >
                   {comment.username}
                 </a>
@@ -260,7 +260,7 @@ export default function Wall({
         <div className="flex justify-center">
           <button
             type="submit"
-            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
           >
             Submit
           </button>

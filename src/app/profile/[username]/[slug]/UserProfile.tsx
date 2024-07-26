@@ -67,20 +67,20 @@ export default function UserProfile({
         <span className="text-9xl">{user.userImage}</span>
       </div>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-blue-900 font-bold dark:text-blue-400">
+        <span className="text-sky-800 font-bold dark:text-sky-600">
           Username:{' '}
         </span>
         {user.username}
       </p>
       <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-blue-900 font-bold dark:text-blue-400">
+        <span className="text-sky-800 font-bold dark:text-sky-600">
           Email:{' '}
         </span>
         {user.email}
       </p>
       {!!user.fullName && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Full Name:{' '}
           </span>
           {user.fullName}
@@ -88,7 +88,7 @@ export default function UserProfile({
       )}
       {!!user.description && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Description:{' '}
           </span>
           {user.description}
@@ -96,7 +96,7 @@ export default function UserProfile({
       )}
       {!!user.interests && (
         <div className="text-center text-gray-700 dark:text-gray-300">
-          {/* <span className="text-blue-900 font-bold dark:text-blue-400">
+          {/* <span className="text-sky-800 font-bold dark:text-sky-600">
             Interests:{' '}
           </span> */}
           {user.interests.split(',').map((interest, index, arr) => (
@@ -112,7 +112,7 @@ export default function UserProfile({
 
       {!!user.profileLinks && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Profile Links:{' '}
           </span>
           {user.profileLinks}
@@ -120,7 +120,7 @@ export default function UserProfile({
       )}
       {!!location && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Location:{' '}
           </span>
           {location.city}, {location.country}
@@ -128,7 +128,7 @@ export default function UserProfile({
       )}
       {!!user.birthdate && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Birthdate:{' '}
           </span>
           {user.birthdate}
@@ -136,7 +136,7 @@ export default function UserProfile({
       )}
       {!!user.profession && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-blue-900 font-bold dark:text-blue-400">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
             Profession:{' '}
           </span>
           {user.profession}
@@ -148,7 +148,7 @@ export default function UserProfile({
           onClick={() =>
             (window.location.href = `/profile/${user.username}/edit`)
           }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
         >
           Edit Profile
         </button>
@@ -182,7 +182,7 @@ export default function UserProfile({
                   {new Date(comment.createdAt).toLocaleString()} by{' '}
                   <a
                     href={`/profile/${comment.username}/public`}
-                    className="text-blue-900 font-bold dark:text-blue-400 hover:text-indigo-800"
+                    className="text-sky-800 font-bold dark:text-sky-600 hover:text-indigo-800"
                   >
                     {comment.username}
                   </a>
