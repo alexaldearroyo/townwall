@@ -82,7 +82,7 @@ export default function Wall({
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await fetch(`/api/profile/${user.id}/comments`);
+        const response = await fetch(`/api/profile/${user.username}/comments`);
         if (!response.ok) {
           throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
@@ -98,7 +98,7 @@ export default function Wall({
     };
 
     fetchComments();
-  }, [user.id]);
+  }, [user.username]);
 
   const handleCommentSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -106,9 +106,9 @@ export default function Wall({
     event.preventDefault();
 
     try {
-      const response = await fetch(`/api/profile/${user.id}/comments`, {
+      const response = await fetch(`/api/profile/${user.username}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ profileId: user.id, content: newComment }),
+        body: JSON.stringify({ content: newComment }),
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -151,19 +151,14 @@ export default function Wall({
       )}
       {!!user.interests && user.interests.trim() !== 'null' && (
         <div className="text-center text-gray-700 dark:text-gray-300">
-          {/* <h3 className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Interests
-          </h3> */}
-          <div className="text-center text-gray-700 dark:text-gray-300">
-            {user.interests.split(',').map((interest) => (
-              <span
-                key={`interest-${interest}`}
-                className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-              >
-                {interest}
-              </span>
-            ))}
-          </div>
+          {user.interests.split(',').map((interest) => (
+            <span
+              key={`interest-${interest}`}
+              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+            >
+              {interest}
+            </span>
+          ))}
         </div>
       )}
 
@@ -177,7 +172,6 @@ export default function Wall({
       )}
       {!!user.location && (
         <div className="w-full">
-          {/* <Map latitude={user.location.y} longitude={user.location.x} /> */}
           {!!location && (
             <p className="text-center text-gray-700 dark:text-gray-300">
               <span className="text-sky-800 font-bold dark:text-sky-600">

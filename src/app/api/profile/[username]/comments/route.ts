@@ -4,6 +4,7 @@ import {
   createProfileComment,
   getCommentsByProfileUserId,
 } from '../../../../../../database/profiles_comments';
+import { getUserByUsername } from '../../../../../../database/users';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,17 +23,25 @@ export async function POST(request: NextRequest) {
     }
 
     const { content } = await request.json();
-    const profileId = request.nextUrl.pathname.split('/')[3];
+    const username = request.nextUrl.pathname.split('/')[3];
 
-    if (!profileId || !content) {
+    if (!username || !content) {
       return NextResponse.json(
-        { error: 'Profile ID and content are required' },
+        { error: 'Username and content are required' },
         { status: 400 },
       );
     }
 
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
     const comment = await createProfileComment(
-      parseInt(profileId, 10),
+      user.id,
       session.userId,
       content,
     );
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error adding comment:', error);
     return NextResponse.json(
-      { error: 'Failed to add comment' },
+      { error: `Failed to add comment: ${error.message}` },
       { status: 500 },
     );
   }
@@ -49,21 +58,29 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const profileId = request.nextUrl.pathname.split('/')[3];
+    const username = request.nextUrl.pathname.split('/')[3];
 
-    if (!profileId) {
+    if (!username) {
       return NextResponse.json(
-        { error: 'Profile ID is required' },
+        { error: 'Username is required' },
         { status: 400 },
       );
     }
 
-    const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
+    const comments = await getCommentsByProfileUserId(user.id);
     return NextResponse.json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch comments' },
+      { error: `Failed to fetch comments: ${error.message}` },
       { status: 500 },
     );
   }
