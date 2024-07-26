@@ -1,231 +1,338 @@
-v// migrations/00007-createUsersCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users_categories (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL REFERENCES users (id),
-      category_id int NOT NULL REFERENCES categories (id)
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE users_categories`;
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/posts/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { createPost, getPostsByUserId } from '../../../../../database/posts';
-
-// Crear Post
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const sessionToken = request.cookies.get('session')?.value;
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
-    }
-
-    const { title, content, slug, icon, categoryId } = await request.json();
-
-    if (!title || !content || !slug) {
-      return NextResponse.json(
-        { error: 'Title, content, and slug are required' },
-        { status: 400 },
-      );
-    }
-
-    const post = await createPost(
-      session.userId,
-      title,
-      content,
-      slug,
-      icon,
-      categoryId,
-    );
-
-    return NextResponse.json(
-      { ...post, userId: session.userId },
-      { status: 201 },
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-// Obtener Posts por Usuario
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(parseInt(userId, 10));
-    return NextResponse.json(posts);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/api/posts/user/[id]/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getPostsByUserId } from '../../../../../../database/posts';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const userId = parseInt(params.id, 10);
-  if (isNaN(userId)) {
-    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(userId);
-    return NextResponse.json(posts);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/posts/[username]/new/NewPostForm.tsx:
+ un// src/app/profile/[username]/edit/EditProfileForm.tsx:
 
 'use client';
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-type UserType = {
-  id: number;
-  username: string;
-};
+const animalEmojis = [
+  '🐶',
+  '🐱',
+  '🐭',
+  '🐹',
+  '🐰',
+  '🦊',
+  '🐻',
+  '🐼',
+  '🐨',
+  '🐯',
+  '🦁',
+  '🐮',
+  '🐷',
+  '🐸',
+  '🐙',
+];
 
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-function generateSlug(title: string): string {
-  return title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-}
-
-export default function NewPostForm({ user }: { user: UserType }) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+export default function EditProfileForm({ user }: { user: any }) {
+  const [formData, setFormData] = useState(user);
   const [error, setError] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [newInterest, setNewInterest] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    setFormData(user);
+    setInterests(user.interests ? user.interests.split(',') : []);
+  }, [user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const slug = generateSlug(title);
-
-    console.log('Form data:', { userId: user.id, title, content, slug });
-
     try {
-      const response = await fetch('/api/posts', {
+      const response = await fetch('/api/profile', {
         method: 'POST',
-        body: JSON.stringify({ userId: user.id, title, content, slug }),
+        body: JSON.stringify({
+          ...formData,
+          interests: JSON.stringify(interests),
+        }),
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
       if (response.ok) {
-        const post: PostType = await response.json();
-        router.push(`/posts/${user.username}/${post.slug}`);
+        const updatedUser = await response.json();
+        setFormData(updatedUser.user);
+        router.push(
+          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
+        );
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create post');
+        throw new Error('Failed to update profile');
       }
     } catch (catchError: any) {
       setError(catchError.message);
     }
   }
 
+  async function handleDelete() {
+    try {
+      const response = await fetch('/api/delete', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        router.push('/register');
+      } else {
+        throw new Error('Failed to delete user');
+      }
+    } catch (catchError: any) {
+      setError(catchError.message);
+    }
+  }
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    const { name, value } = event.target;
+    setFormData((prevData: any) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }
+
+  function handleEmojiClick() {
+    setShowEmojiPicker(!showEmojiPicker);
+  }
+
+  function handleEmojiSelect(emoji: string) {
+    setFormData((prevData: any) => ({
+      ...prevData,
+      userImage: emoji,
+    }));
+    setShowEmojiPicker(false);
+  }
+
+  function toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) => {
+      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+    });
+  }
+
+  async function handleAddInterest() {
+    const titleCaseInterest = toTitleCase(newInterest);
+
+    if (
+      newInterest &&
+      interests.length < 7 &&
+      !interests.includes(titleCaseInterest)
+    ) {
+      const response = await fetch('/api/interests', {
+        method: 'POST',
+        body: JSON.stringify({ categoryName: titleCaseInterest }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInterests(data.categories.map((cat: any) => cat.categoryName));
+        setNewInterest('');
+      } else {
+        setError('Failed to add interest');
+      }
+    } else if (interests.includes(titleCaseInterest)) {
+      setError('Interest already added');
+    }
+  }
+
+  async function handleRemoveInterest(interestToRemove: string) {
+    try {
+      const response = await fetch('/api/interests', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          categoryName: interestToRemove,
+          userId: user.id,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove interest');
+      }
+
+      setInterests(
+        interests.filter((interest) => interest !== interestToRemove),
+      );
+    } catch (error) {
+      setError('Failed to remove interest');
+    }
+  }
+
   return (
-    <div className="flex items-center justify-center mt-20 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Create a New Post
+          Edit My Profile
         </h1>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <div className="text-center">
+          <button
+            className="text-9xl cursor-pointer"
+            onClick={handleEmojiClick}
+            tabIndex={0}
+          >
+            {formData.userImage}
+          </button>
+          <p className="text-gray-500 text-sm">Click on image to change</p>
+          {showEmojiPicker && (
+            <div className="mt-2 flex flex-wrap justify-center space-x-2">
+              {animalEmojis.map((emoji) => (
+                <button
+                  key={`emoji-${emoji}`}
+                  className="text-2xl cursor-pointer"
+                  onClick={() => handleEmojiSelect(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-800 p-6 rounded-md mx-auto"
+        >
           <div>
             <label
-              htmlFor="title"
+              htmlFor="fullName"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Title
+              Full Name
             </label>
             <input
-              id="title"
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Write the title here"
-              required
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              placeholder={formData.fullName ? '' : 'Enter your full name'}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
           </div>
           <div>
             <label
-              htmlFor="content"
+              htmlFor="description"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Content
+              Description
             </label>
             <textarea
-              id="content"
-              name="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your post here"
-              required
-              className="mt-1 block w-full h-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder={
+                formData.description ? '' : 'Enter a description of yourself'
+              }
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
           </div>
-          <div className="flex justify-center">
-            <button className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-              Add Post
+          <div>
+            <label
+              htmlFor="interests"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Interests
+            </label>
+            <div className="flex space-x-2">
+              <input
+                id="newInterest"
+                name="newInterest"
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                placeholder="Add a new interest"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleAddInterest}
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Add
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {interests.map((interest) => (
+                <span
+                  key={`interest-${interest}`}
+                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                >
+                  {interest}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInterest(interest)}
+                    className="ml-2 text-gray-500 hover:text-gray-700"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor="profileLinks"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Personal Links
+            </label>
+            <input
+              id="profileLinks"
+              name="profileLinks"
+              value={formData.profileLinks}
+              onChange={handleChange}
+              placeholder={
+                formData.profileLinks ? '' : 'Enter your personal links'
+              }
+              className="mt-1 block w-full px-3 py-2 border               border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="birthdate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Birth Date
+            </label>
+            <input
+              id="birthdate"
+              name="birthdate"
+              type="date"
+              value={formData.birthdate}
+              onChange={handleChange}
+              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="profession"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Profession
+            </label>
+            <input
+              id="profession"
+              name="profession"
+              value={formData.profession}
+              onChange={handleChange}
+              placeholder={formData.profession ? '' : 'Enter your profession'}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+            />
+          </div>
+          <div className="flex justify-center space-x-4">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete User
             </button>
           </div>
         </form>
@@ -236,20 +343,15 @@ export default function NewPostForm({ user }: { user: UserType }) {
 
 ----------------------------------------
 
-// src/app/posts/[username]/new/page.tsx:
+// src/app/profile/[username]/edit/page.tsx:
 
 import React from 'react';
 import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
 import { getSessionByToken } from '../../../../../database/sessions';
-import NewPostForm from './NewPostForm';
+import { getUserById } from '../../../../../database/users';
+import EditProfileForm from './EditProfileForm';
 
-export default async function NewPostPage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
+export default async function EditProfilePage() {
   const cookieStore = cookies();
   const sessionToken = cookieStore.get('session');
 
@@ -271,275 +373,26 @@ export default async function NewPostPage({
     );
   }
 
-  const user = await getUserByUsername(username);
+  const user = await getUserById(session.userId);
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="main-content form-container bg-white dark:bg-gray-900">
-      <NewPostForm user={user} />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/posts/[username]/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../database/users';
-import { getSessionByToken } from '../../../../database/sessions';
-import { getPostsByUserId } from '../../../../database/posts';
-
-export default async function UserPostsPage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  const posts = await getPostsByUserId(user.id);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-4xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white">
-          Posts by {user.username}
-        </h1>
-        {posts.length > 0 ? (
-          <ul>
-            {posts.map((post) => (
-              <li key={`post-${post.id}`} className="mb-4">
-                <a
-                  href={`/posts/${user.username}/${post.slug}`}
-                  className="text-xl font-semibold text-blue-600 hover:underline"
-                >
-                  {post.title}
-                </a>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {post.content.slice(0, 100)}...
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            Loading...
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/posts/[username]/[slug]/PostClient.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  postId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-};
-
-export default function PostClient({ post }: { post: any }) {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`/api/comments?postId=${post.id}`)
-      .then((response) => response.json())
-      .then((data) => setComments(data))
-      .catch((err) => setError('Failed to fetch comments'));
-  }, [post.id]);
-
-  const handleCommentSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    try {
-      const response = await fetch('/api/comments', {
-        method: 'POST',
-        body: JSON.stringify({ postId: post.id, content: newComment }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add comment');
-      }
-
-      const comment = await response.json();
-      setComments([comment, ...comments]);
-      setNewComment('');
-    } catch (err) {
-      setError('Failed to add comment');
-    }
+  const userProfile = {
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName || '',
+    description: user.description || '',
+    interests: user.interests || '',
+    profileLinks: user.profileLinks || '',
+    userImage: user.userImage || '',
+    location: user.location || '',
+    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
+    profession: user.profession || '',
   };
 
   return (
-    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          {post.title}
-        </h1>
-        <p className="text-center text-gray-600 dark:text-gray-400">
-          By{' '}
-          <a
-            href={`/profile/${post.author}/public`}
-            className="text-blue-700 dark:text-blue-400"
-          >
-            {post.author}
-          </a>{' '}
-          on {new Date(post.createdAt).toLocaleDateString()}
-        </p>
-        <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
-
-        <hr className="my-4 border-gray-300 dark:border-gray-600" />
-
-        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
-          Comments
-        </h2>
-
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-
-        <div className="space-y-4">
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-            >
-              <p className="text-gray-700 dark:text-gray-300">
-                {comment.content}
-              </p>
-              <small className="text-gray-500">
-                {new Date(comment.createdAt).toLocaleString()} by{' '}
-                <a
-                  href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-blue-400 hover:text-sky-800"
-                >
-                  {comment.username}
-                </a>
-              </small>
-            </div>
-          ))}
-        </div>
-        <form onSubmit={handleCommentSubmit} className="space-y-4">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-          <div className="flex justify-center">
-            <button
-              type="submit"
-              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Submit
-            </button>
-          </div>
-        </form>
-      </div>
+    <div className="main-content form-container bg-white dark:bg-gray-900">
+      <EditProfileForm user={userProfile} />
     </div>
   );
-}
-
-----------------------------------------
-
-// src/app/posts/[username]/[slug]/page.tsx:
-
-import { cookies } from 'next/headers';
-import { getPostByUserAndSlug } from '../../../../../database/posts';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PostClient from './PostClient';
-import React from 'react';
-
-export default async function PostPage({
-  params,
-}: {
-  params: { username: string; slug: string };
-}) {
-  const { username, slug } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const post = await getPostByUserAndSlug(username, slug);
-
-  if (!post) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">Post not found</p>
-      </div>
-    );
-  }
-
-  // Include the author's username in the post data
-  post.author = username;
-
-  return <PostClient post={post} />;
 }
 
 ----------------------------------------

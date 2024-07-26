@@ -109,3 +109,39 @@ export async function removeUserCategory(
       AND category_id = ${category.id}
   `;
 }
+
+export async function removePostCategory(
+  postId: number,
+  categoryName: string,
+): Promise<void> {
+  const category = await getCategoryByName(categoryName);
+
+  if (!category) {
+    throw new Error('Category not found');
+  }
+
+  await sql`
+    DELETE FROM posts_categories
+    WHERE
+      post_id = ${postId}
+      AND category_id = ${category.id}
+  `;
+}
+
+export async function getCategoryIdsByNames(
+  categoryNames: string[],
+): Promise<number[]> {
+  const categories = await sql<Category[]>`
+    SELECT
+      id,
+      category_name
+    FROM
+      categories
+    WHERE
+      category_name = ANY (
+        ${categoryNames}
+      )
+  `;
+
+  return categories.map((category) => category.id);
+}

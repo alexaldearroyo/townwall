@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../database/sessions';
-import { createPost, getPostsByUserId } from '../../../../../database/posts';
+import {
+  createPost,
+  addPostCategories,
+  getPostsByUserId,
+} from '../../../../../database/posts';
 
-// Crear Post
+// Create Post
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const sessionToken = request.cookies.get('session')?.value;
@@ -18,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
     }
 
-    const { title, content, slug, icon, categoryId } = await request.json();
+    const { title, content, slug, icon, categoryNames } = await request.json();
 
     if (!title || !content || !slug) {
       return NextResponse.json(
@@ -27,14 +31,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const post = await createPost(
-      session.userId,
-      title,
-      content,
-      slug,
-      icon,
-      categoryId,
-    );
+    const post = await createPost(session.userId, title, content, slug, icon);
+
+    if (categoryNames && categoryNames.length > 0) {
+      await addPostCategories(post.id, categoryNames);
+    }
 
     return NextResponse.json(
       { ...post, userId: session.userId },
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Obtener Posts por Usuario
+// Obtain Posts by User
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
   const userId = url.searchParams.get('userId');
