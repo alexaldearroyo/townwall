@@ -11,6 +11,11 @@ type CommentType = {
   username: string;
 };
 
+type CategoryType = {
+  id: number;
+  categoryName: string;
+};
+
 export default function PostClient({ post }: { post: any }) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -46,8 +51,8 @@ export default function PostClient({ post }: { post: any }) {
   };
 
   return (
-    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-3xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           {post.title}
         </h1>
@@ -60,6 +65,18 @@ export default function PostClient({ post }: { post: any }) {
             {post.author}
           </a>{' '}
           on {new Date(post.createdAt).toLocaleDateString()}
+          {post.categories && post.categories.length > 0 && (
+            <span className="ml-2 inline-block text-sm text-gray-500 dark:text-gray-400">
+              {post.categories.map((category: CategoryType) => (
+                <span
+                  key={`category-${category.id}`}
+                  className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                >
+                  {category.id}
+                </span>
+              ))}
+            </span>
+          )}
         </p>
         <p className="text-gray-700 dark:text-gray-300">{post.content}</p>
 

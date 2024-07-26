@@ -10,6 +10,8 @@ export type Post = {
   createdAt: Date;
   updatedAt: Date | null;
   slug: string;
+  author?: string;
+  categories?: { id: number; categoryName: string }[];
 };
 
 export async function getPostById(postId: number) {
@@ -101,7 +103,18 @@ export async function getPostByUserAndSlug(username: string, slug: string) {
       u.username = ${username}
       AND p.slug = ${slug}
   `;
-  return posts[0];
+  const post = posts[0];
+  if (!post) {
+    return undefined;
+  }
+
+  const categories = await getPostCategories(post.id);
+
+  return {
+    ...post,
+    author: username,
+    categories,
+  };
 }
 
 export async function createPost(
@@ -169,7 +182,7 @@ export async function addPostCategories(
     throw new Error('No valid categories found');
   }
 
-  // Insertar las categorías del post
+  // Insert categories to post
   await sql`
     INSERT INTO
       posts_categories (post_id, category_id)
@@ -179,4 +192,18 @@ export async function addPostCategories(
         ${categoryIds}::INT[]
       )
   `;
+}
+
+export async function getPostCategories(postId: number) {
+  const categories = await sql<{ id: number; categoryName: string }[]>`
+    SELECT
+      c.id,
+      c.category_name AS "categoryName"
+    FROM
+      categories c
+      JOIN posts_categories pc ON c.id = pc.category_id
+    WHERE
+      pc.post_id = ${postId}
+  `;
+  return categories;
 }

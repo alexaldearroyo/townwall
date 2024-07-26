@@ -1,5 +1,8 @@
 import { cookies } from 'next/headers';
-import { getPostByUserAndSlug } from '../../../../../database/posts';
+import {
+  getPostByUserAndSlug,
+  getPostCategories,
+} from '../../../../../database/posts';
 import { getSessionByToken } from '../../../../../database/sessions';
 import PostClient from './PostClient';
 import React from 'react';
@@ -41,8 +44,12 @@ export default async function PostPage({
     );
   }
 
-  // Include the author's username in the post data
+  // Get posts categories
+  const categories = await getPostCategories(post.id);
+
+  // Include the author's username and categories in the post data
   post.author = username;
+  post.categories = categories;
 
   return <PostClient post={post} />;
 }
