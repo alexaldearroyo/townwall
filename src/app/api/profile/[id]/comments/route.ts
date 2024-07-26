@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
+import { getSessionByToken } from '../../../../../../database/sessions';
 import {
   createProfileComment,
   getCommentsByProfileUserId,
-} from '../../../../../database/profiles_comments'; // Cambiado
+} from '../../../../../../database/profiles_comments';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { profileId, content } = await request.json();
+    const { content } = await request.json();
+    const profileId = request.nextUrl.pathname.split('/')[3];
 
     if (!profileId || !content) {
       return NextResponse.json(
@@ -31,14 +32,14 @@ export async function POST(request: NextRequest) {
     }
 
     const comment = await createProfileComment(
-      profileId,
+      parseInt(profileId, 10),
       session.userId,
       content,
     );
 
     return NextResponse.json(comment, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error('Error adding comment:', error);
     return NextResponse.json(
       { error: 'Failed to add comment' },
       { status: 500 },
@@ -47,16 +48,23 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const profileId = url.searchParams.get('profileId');
+  try {
+    const profileId = request.nextUrl.pathname.split('/')[3];
 
-  if (!profileId) {
+    if (!profileId) {
+      return NextResponse.json(
+        { error: 'Profile ID is required' },
+        { status: 400 },
+      );
+    }
+
+    const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
+    return NextResponse.json(comments);
+  } catch (error) {
+    console.error('Error fetching comments:', error);
     return NextResponse.json(
-      { error: 'Profile ID is required' },
-      { status: 400 },
+      { error: 'Failed to fetch comments' },
+      { status: 500 },
     );
   }
-
-  const comments = await getCommentsByProfileUserId(parseInt(profileId, 10)); // Cambiado
-  return NextResponse.json(comments);
 }

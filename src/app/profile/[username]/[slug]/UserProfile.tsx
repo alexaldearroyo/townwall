@@ -41,9 +41,7 @@ export default function UserProfile({
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await fetch(
-          `/api/profile/comments?profileId=${user.id}`,
-        );
+        const response = await fetch(`/api/profile/${user.id}/comments`);
         if (response.ok) {
           const profileComments = await response.json();
           setComments(profileComments);

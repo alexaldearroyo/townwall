@@ -1,288 +1,885 @@
-// migrations/00000-createUsersTable.ts:
+// database/comments.ts:
 
-import { Sql } from 'postgres';
+import { sql } from './connect';
 
-export async function up(sql: Sql) {
-  await sql`
-    CREATE EXTENSION if NOT EXISTS postgis
-    WITH
-      schema public;
-  `;
+export type Comment = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+};
 
-  await sql`
-    CREATE TABLE users (
-      id serial PRIMARY KEY,
-      username varchar(255) NOT NULL UNIQUE,
-      email varchar(255) NOT NULL UNIQUE,
-      password_hash varchar(255) NOT NULL,
-      profile_id serial UNIQUE,
-      full_name text,
-      description text,
-      interests text,
-      profile_links text,
-      user_image varchar(255) NOT NULL,
-      location geometry (POINT, 4326),
-      birthdate date,
-      profession text,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL UNIQUE
-    )
-  `;
+----------------------------------------
 
-  await sql`
-    CREATE
-    OR REPLACE function update_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
+// database/profiles_comments.ts:
 
-  await sql`
-    CREATE TRIGGER update_users_updated_at before
-    UPDATE ON users FOR each ROW
-    EXECUTE function update_updated_at_column ();
-  `;
+import { sql } from './connect';
+
+export type ProfileComment = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+};
+
+export async function createProfileComment(
+  profileId: number,
+  userId: number,
+  content: string,
+): Promise<ProfileComment> {
+  try {
+    const user = await sql<{ id: number }[]>`
+      SELECT
+        id
+      FROM
+        users
+      WHERE
+        id = ${profileId}
+    `;
+
+    if (user.length === 0) {
+      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
+    }
+
+    const [comment] = await sql<ProfileComment[]>`
+      INSERT INTO
+        profiles_comments (profile_id, user_id, content)
+      VALUES
+        (
+          ${profileId},
+          ${userId},
+          ${content}
+        )
+      RETURNING
+        id,
+        profile_id AS "profileId",
+        user_id AS "userId",
+        content,
+        created_at AS "createdAt",
+        (
+          SELECT
+            username
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "username",
+        (
+          SELECT
+            user_image
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "userImage"
+    `;
+
+    if (!comment) {
+      throw new Error('Failed to create profile comment');
+    }
+
+    return comment;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('violates foreign key constraint')
+    ) {
+      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
+    } else {
+      throw error;
+    }
+  }
 }
 
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_users_updated_at ON users`;
-  await sql`DROP FUNCTION if EXISTS update_updated_at_column`;
-  await sql`DROP TABLE IF EXISTS users`;
-  await sql`DROP EXTENSION if EXISTS postgis`;
+export function getCommentsByProfileUserId(
+  profileId: number,
+): Promise<ProfileComment[]> {
+  return sql<ProfileComment[]>`
+    SELECT
+      profiles_comments.id,
+      profiles_comments.profile_id AS "profileId",
+      profiles_comments.user_id AS "userId",
+      profiles_comments.content,
+      profiles_comments.created_at AS "createdAt",
+      users.username,
+      users.user_image AS "userImage"
+    FROM
+      profiles_comments
+      JOIN users ON profiles_comments.user_id = users.id
+    WHERE
+      profiles_comments.profile_id = ${profileId}
+    ORDER BY
+      profiles_comments.created_at DESC
+  `;
 }
 
 ----------------------------------------
 
-// migrations/00001-createSessionsTable.ts:
+// src/app/(auth)/api/profile/route.ts:
 
-import { Sql } from 'postgres';
+import { NextResponse } from 'next/server';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { z } from 'zod';
+import { NextRequest } from 'next/server';
 
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE sessions (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL REFERENCES users (id),
-      token varchar(255) NOT NULL,
-      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      expires_at timestamp NOT NULL
-    )
-  `;
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  description: z.string().optional(),
+  interests: z.string().optional(),
+  profileLinks: z.string().optional(),
+  userImage: z.string().optional(),
+  // location: z.string().optional(),
+  birthdate: z.string().optional(),
+  profession: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const result = profileSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const interestsArray = result.data.interests
+      ? JSON.parse(result.data.interests)
+      : [];
+    const updatedUser = await updateUserProfile(session.userId, {
+      ...result.data,
+      interests: interestsArray,
+    } as Partial<UserProfile>);
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
 }
 
-export async function down(sql: Sql) {
-  await sql`DROP TABLE sessions`;
-}
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
 
-----------------------------------------
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
 
-// migrations/00002-createFollowsTable.ts:
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
 
-import { Sql } from 'postgres';
+    const user = await getUserById(session.userId);
+    if (!user) {
+      return NextResponse.json(
+        { errors: [{ message: 'User not found' }] },
+        { status: 404 },
+      );
+    }
 
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE follows (
-      id serial PRIMARY KEY,
-      follower_id int NOT NULL REFERENCES users (id),
-      followed_id int NOT NULL REFERENCES users (id),
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-}
+    console.log(user);
 
-export async function down(sql: Sql) {
-  await sql`DROP TABLE follows`;
-}
-
-----------------------------------------
-
-// migrations/00003-createPostsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL REFERENCES users (id),
-      icon varchar(1),
-      title varchar(255) NOT NULL,
-      content text NOT NULL,
-      category_id bigint,
-      created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      slug varchar(255) NOT NULL UNIQUE
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_posts_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_posts_updated_at before
-    UPDATE ON posts FOR each ROW
-    EXECUTE procedure update_posts_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_posts_updated_at ON posts`;
-  await sql`DROP FUNCTION if EXISTS update_posts_updated_at_column`;
-  await sql`DROP TABLE posts`;
-}
-
-----------------------------------------
-
-// migrations/00004-createcategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE categories (
-      id serial PRIMARY KEY,
-      category_name varchar(255) NOT NULL UNIQUE,
-      description text
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE categories`;
-}
-
-----------------------------------------
-
-// migrations/00005-createCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE comments (
-      id serial PRIMARY KEY,
-      post_id int NOT NULL REFERENCES posts (id) ON DELETE cascade,
-      user_id int NOT NULL REFERENCES users (id) ON DELETE cascade,
-      content text NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-      updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    CREATE
-    OR REPLACE function update_comments_updated_at_column () returns trigger AS $$
-    BEGIN
-      NEW.updated_at = NOW();
-      RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-
-  await sql`
-    CREATE TRIGGER update_comments_updated_at before
-    UPDATE ON comments FOR each ROW
-    EXECUTE procedure update_comments_updated_at_column ();
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TRIGGER if EXISTS update_comments_updated_at ON comments`;
-  await sql`DROP FUNCTION if EXISTS update_comments_updated_at_column`;
-  await sql`DROP TABLE comments`;
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------
 
-// migrations/00006-createPostsCategoriesTable.ts:
+// src/app/api/comments/route.ts:
 
-import { Sql } from 'postgres';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../database/sessions';
+import {
+  createPostComment,
+  getCommentsByPostId,
+} from '../../../../database/posts_comments'; // Cambiado
 
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_categories (
-      id serial PRIMARY KEY,
-      post_id int NOT NULL REFERENCES posts (id),
-      category_id int NOT NULL REFERENCES categories (id)
-    )
-  `;
+export async function POST(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
+
+  const { postId, content } = await request.json();
+
+  if (!postId || !content) {
+    return NextResponse.json(
+      { error: 'Post ID and content are required' },
+      { status: 400 },
+    );
+  }
+
+  const comment = await createPostComment(postId, session.userId, content); // Cambiado
+  return NextResponse.json(comment, { status: 201 });
 }
 
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_categories`;
-}
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const postId = url.searchParams.get('postId');
 
-----------------------------------------
+  if (!postId) {
+    return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
+  }
 
-// migrations/00007-createUsersCategoriesTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE users_categories (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL REFERENCES users (id),
-      category_id int NOT NULL REFERENCES categories (id)
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE users_categories`;
-}
-
-----------------------------------------
-
-// migrations/00008-createProfilesCommentsTable.ts:
-
-import { Sql } from 'postgres';
-
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE profile_comments (
-      id serial PRIMARY KEY,
-      user_id int NOT NULL REFERENCES users (id),
-      commenter_id int NOT NULL REFERENCES users (id),
-      content text NOT NULL,
-      created_at timestamp DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-}
-
-export async function down(sql: Sql) {
-  await sql`DROP TABLE IF EXISTS profile_comments`;
+  const comments = await getCommentsByPostId(parseInt(postId, 10)); // Cambiado
+  return NextResponse.json(comments);
 }
 
 ----------------------------------------
 
-// migrations/00009-createPostsCommentsTable.ts:
+// src/app/api/profile/[id]/comments/route.ts:
 
-import { Sql } from 'postgres';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../../database/sessions';
+import {
+  createProfileComment,
+  getCommentsByProfileUserId,
+} from '../../../../../../database/profiles_comments';
 
-export async function up(sql: Sql) {
-  await sql`
-    CREATE TABLE posts_comments (
-      id serial PRIMARY KEY,
-      profile_id bigint NOT NULL REFERENCES posts (id),
-      comment_id bigint NOT NULL REFERENCES comments (id),
-      commenter_id bigint NOT NULL REFERENCES users (id)
-    )
-  `;
+export async function POST(request: NextRequest) {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const { content } = await request.json();
+    const profileId = request.nextUrl.pathname.split('/')[3];
+
+    if (!profileId || !content) {
+      return NextResponse.json(
+        { error: 'Profile ID and content are required' },
+        { status: 400 },
+      );
+    }
+
+    const comment = await createProfileComment(
+      parseInt(profileId, 10),
+      session.userId,
+      content,
+    );
+
+    return NextResponse.json(comment, { status: 201 });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    return NextResponse.json(
+      { error: 'Failed to add comment' },
+      { status: 500 },
+    );
+  }
 }
 
-export async function down(sql: Sql) {
-  await sql`DROP TABLE posts_comments`;
+export async function GET(request: NextRequest) {
+  try {
+    const profileId = request.nextUrl.pathname.split('/')[3];
+
+    if (!profileId) {
+      return NextResponse.json(
+        { error: 'Profile ID is required' },
+        { status: 400 },
+      );
+    }
+
+    const comments = await getCommentsByProfileUserId(parseInt(profileId, 10));
+    return NextResponse.json(comments);
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch comments' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/comments/page.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
+};
+
+export default function CommentsPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchUserAndComments = async () => {
+      try {
+        const userResponse = await fetch(`/api/users/username/${username}`);
+        const user = await userResponse.json();
+        setProfileId(user.id);
+
+        const commentsResponse = await fetch(
+          `/api/profile/comments?profileId=${user.id}`,
+        );
+        const commentsData = await commentsResponse.json();
+        setComments(commentsData);
+      } catch (err) {
+        setError('Failed to fetch comments or user');
+      }
+    };
+
+    fetchUserAndComments();
+  }, [username]);
+
+  const handleCommentSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    if (!profileId) {
+      setError('Profile ID is not set');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/profile/comments', {
+        method: 'POST',
+        body: JSON.stringify({ profileId, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+          Comments for {username}
+        </h1>
+        <form onSubmit={handleCommentSubmit} className="space-y-4">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+          <button
+            type="submit"
+            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
+          >
+            Submit
+          </button>
+        </form>
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <div className="space-y-4">
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500 dark:text-gray-400">
+                {new Date(comment.createdAt).toLocaleString()}
+              </small>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/page.tsx:
+
+import React from 'react';
+import { cookies } from 'next/headers';
+import { getUserByUsername } from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import PublicPageClient from './PublicPageClient';
+
+export default async function PublicProfilePage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get('session');
+
+  const loggedInUserId = sessionToken
+    ? (await getSessionByToken(sessionToken.value))?.userId
+    : null;
+
+  const user = await getUserByUsername(username);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-xl text-red-500">User not found</p>
+      </div>
+    );
+  }
+
+  const userProfile = {
+    id: user.id,
+    username: user.username,
+    ...(user.fullName && { fullName: user.fullName }),
+    ...(user.description && { description: user.description }),
+    ...(user.interests && { interests: user.interests }),
+    ...(user.profileLinks && { profileLinks: user.profileLinks }),
+    ...(user.userImage && { userImage: user.userImage }),
+    ...(user.location && { location: user.location }),
+    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
+    ...(user.profession && { profession: user.profession }),
+  };
+
+  return (
+    <div>
+      <PublicPageClient
+        user={userProfile}
+        loggedInUserId={loggedInUserId ?? null}
+      />
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/PublicPageClient.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Wall from './Wall';
+import Posts from './Posts';
+
+type PostType = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  categoryId: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  slug: string;
+};
+
+export default function PublicPageClient({
+  user,
+  loggedInUserId,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  loggedInUserId: number | null;
+}) {
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch(`/api/posts/user/${user.id}`);
+        if (response.ok) {
+          const userPosts = await response.json();
+          setPosts(userPosts);
+        } else {
+          setError('Failed to fetch posts');
+        }
+      } catch (err) {
+        setError('Failed to fetch posts');
+      }
+    };
+
+    fetchPosts();
+  }, [user.id]);
+
+  return (
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+      <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
+        <Wall user={user} loggedInUserId={loggedInUserId} />
+      </div>
+      <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
+        <Posts posts={posts} username={user.username} />
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/profile/[username]/public/Wall.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { getCityAndCountry } from '../../../../../util/geocode';
+
+const Map = dynamic(() => import('../../../../components/MapComponent'), {
+  ssr: false,
+});
+
+type LocationType = {
+  city: string;
+  country: string;
+};
+
+type CommentType = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+  userImage: string;
+};
+
+export default function Wall({
+  user,
+  loggedInUserId,
+}: {
+  user: {
+    id: number;
+    username: string;
+    fullName?: string;
+    description?: string;
+    interests?: string;
+    profileLinks?: string;
+    userImage?: string;
+    location?: { x: number; y: number } | null;
+    birthdate?: string;
+    profession?: string;
+  };
+  loggedInUserId: number | null;
+}) {
+  const [location, setLocation] = useState<LocationType | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [comments, setComments] = useState<CommentType[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user.location) {
+      getCityAndCountry(user.location.y, user.location.x)
+        .then((loc) => setLocation(loc))
+        .catch((err) => setError('Failed to fetch location data'));
+    }
+  }, [user.location]);
+
+  useEffect(() => {
+    const checkIfFollowing = async () => {
+      if (loggedInUserId) {
+        const response = await fetch(
+          `/api/follows?followerId=${loggedInUserId}&followedId=${user.id}`,
+        );
+        const result = await response.json();
+        setIsFollowing(result.isFollowing);
+      }
+    };
+
+    checkIfFollowing();
+  }, [loggedInUserId, user.id]);
+
+  const handleFollow = async () => {
+    await fetch('/api/follows', {
+      method: isFollowing ? 'DELETE' : 'POST',
+      body: JSON.stringify({ followerId: loggedInUserId, followedId: user.id }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    setIsFollowing(!isFollowing);
+  };
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const response = await fetch(`/api/profile/${user.id}/comments`);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
+        }
+        const profileComments = await response.json();
+        setComments(profileComments);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(`Failed to fetch comments: ${err.message}`);
+        } else {
+          setError('Failed to fetch comments: An unknown error occurred');
+        }
+      }
+    };
+
+    fetchComments();
+  }, [user.id]);
+
+  const handleCommentSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    try {
+      const response = await fetch('/api/profile/comments', {
+        method: 'POST',
+        body: JSON.stringify({ profileId: user.id, content: newComment }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (err) {
+      setError('Failed to add comment');
+    }
+  };
+
+  return (
+    <div className="w-full space-y-6">
+      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        {user.username}'s Wall
+      </h1>
+      <div className="text-center mx-auto">
+        <span className="text-9xl">{user.userImage}</span>
+      </div>
+      {!!user.fullName && user.fullName.trim() !== 'null' && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Full Name:{' '}
+          </span>
+          {user.fullName}
+        </p>
+      )}
+      {!!user.description && user.description.trim() !== 'null' && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Description:{' '}
+          </span>
+          {user.description}
+        </p>
+      )}
+      {!!user.interests && user.interests.trim() !== 'null' && (
+        <div className="text-center text-gray-700 dark:text-gray-300">
+          {/* <h3 className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Interests
+          </h3> */}
+          <div className="text-center text-gray-700 dark:text-gray-300">
+            {user.interests.split(',').map((interest) => (
+              <span
+                key={`interest-${interest}`}
+                className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+              >
+                {interest}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Links:{' '}
+          </span>
+          {user.profileLinks}
+        </p>
+      )}
+      {!!user.location && (
+        <div className="w-full">
+          {/* <Map latitude={user.location.y} longitude={user.location.x} /> */}
+          {!!location && (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              <span className="text-sky-800 font-bold dark:text-sky-600">
+                Location:{' '}
+              </span>
+              {location.city}, {location.country}
+            </p>
+          )}
+        </div>
+      )}
+      {!!user.birthdate && user.birthdate.trim() !== 'null' && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Birthdate:{' '}
+          </span>
+          {user.birthdate}
+        </p>
+      )}
+      {!!user.profession && user.profession.trim() !== 'null' && (
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-800 font-bold dark:text-sky-600">
+            Profession:{' '}
+          </span>
+          {user.profession}
+        </p>
+      )}
+      {!!loggedInUserId && loggedInUserId !== user.id && (
+        <div className="flex justify-center">
+          <button
+            onClick={handleFollow}
+            className={`w-0.5/2 h-10 px-4 text-white rounded-md ${
+              isFollowing ? 'bg-red-600' : 'bg-sky-600'
+            }`}
+          >
+            {isFollowing ? 'Unfollow' : 'Follow'}
+          </button>
+        </div>
+      )}
+      <hr className="my-8 border-gray-300 dark:border-gray-600" />
+
+      {!!error && <p className="text-red-500 text-center">{error}</p>}
+      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
+        Comments
+      </h2>
+      <div className="space-y-2">
+        {comments.length === 0 ? (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            No comments yet
+          </p>
+        ) : (
+          comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
+            >
+              <p className="text-gray-700 dark:text-gray-300">
+                {comment.content}
+              </p>
+              <small className="text-gray-500 dark:text-gray-400">
+                {new Date(comment.createdAt).toLocaleString()} by{' '}
+                <a
+                  href={`/profile/${comment.username}/public`}
+                  className="text-blue-700 dark:text-sky-600 hover:text-indigo-800"
+                >
+                  {comment.username}
+                </a>
+              </small>
+            </div>
+          ))
+        )}
+      </div>
+      <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
+        <div className="flex justify-center w-full">
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment"
+            required
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div className="flex justify-center">
+          <button
+            type="submit"
+            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+          >
+            Submit
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 ----------------------------------------

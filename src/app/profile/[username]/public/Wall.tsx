@@ -82,17 +82,18 @@ export default function Wall({
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const response = await fetch(
-          `/api/profile/comments?profileId=${user.id}`,
-        );
-        if (response.ok) {
-          const profileComments = await response.json();
-          setComments(profileComments);
-        } else {
-          setError('Failed to fetch comments');
+        const response = await fetch(`/api/profile/${user.id}/comments`);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
+        const profileComments = await response.json();
+        setComments(profileComments);
       } catch (err) {
-        setError('Failed to fetch comments');
+        if (err instanceof Error) {
+          setError(`Failed to fetch comments: ${err.message}`);
+        } else {
+          setError('Failed to fetch comments: An unknown error occurred');
+        }
       }
     };
 
@@ -105,14 +106,15 @@ export default function Wall({
     event.preventDefault();
 
     try {
-      const response = await fetch('/api/profile/comments', {
+      const response = await fetch(`/api/profile/${user.id}/comments`, {
         method: 'POST',
         body: JSON.stringify({ profileId: user.id, content: newComment }),
         headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add comment');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add comment');
       }
 
       const comment = await response.json();
