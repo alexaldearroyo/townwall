@@ -19,10 +19,9 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { categoryName } = await request.json();
-    const category = await createCategory(categoryName);
-    const categories = await getCategories();
-    return NextResponse.json({ category, categories });
+    const { categoryName, description } = await request.json();
+    const category = await createCategory(categoryName, description);
+    return NextResponse.json({ category });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },

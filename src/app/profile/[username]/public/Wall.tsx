@@ -207,7 +207,7 @@ export default function Wall({
           <button
             onClick={handleFollow}
             className={`w-0.5/2 h-10 px-4 text-white rounded-md ${
-              isFollowing ? 'bg-red-600' : 'bg-indigo-600'
+              isFollowing ? 'bg-red-600' : 'bg-sky-600'
             }`}
           >
             {isFollowing ? 'Unfollow' : 'Follow'}

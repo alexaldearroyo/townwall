@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
-import {
-  getPostByUserAndSlug,
-  getPostCategories,
-} from '../../../../../database/posts';
+import { getPostByUserAndSlug } from '../../../../../database/posts';
+import { getPostCategories } from '../../../../../database/categories';
 import { getSessionByToken } from '../../../../../database/sessions';
 import PostClient from './PostClient';
 import React from 'react';

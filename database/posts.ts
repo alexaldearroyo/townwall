@@ -1,5 +1,9 @@
 import { sql } from './connect';
-import { getCategoryIdsByNames } from './categories';
+import {
+  addPostCategories,
+  getPostCategories,
+  getCategoryIdsByNames,
+} from './categories';
 
 export type Post = {
   id: number;
@@ -108,12 +112,10 @@ export async function getPostByUserAndSlug(username: string, slug: string) {
     return undefined;
   }
 
-  const categories = await getPostCategories(post.id);
-
   return {
     ...post,
     author: username,
-    categories,
+    categories: await getPostCategories(post.id),
   };
 }
 
@@ -123,6 +125,7 @@ export async function createPost(
   content: string,
   slug: string,
   icon: string = '',
+  categoryIds: number[] = [],
 ): Promise<Post> {
   const [post] = await sql<
     {
@@ -167,43 +170,12 @@ export async function createPost(
     throw new Error('Failed to create post');
   }
 
+  if (categoryIds.length > 0) {
+    await addPostCategories(post.id, categoryIds);
+  }
+
   const createdAt = new Date(post.createdAt);
   const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
 
   return { ...post, createdAt, updatedAt };
-}
-
-export async function addPostCategories(
-  postId: number,
-  categoryNames: string[],
-): Promise<void> {
-  const categoryIds = await getCategoryIdsByNames(categoryNames);
-  if (categoryIds.length === 0) {
-    throw new Error('No valid categories found');
-  }
-
-  // Insert categories to post
-  await sql`
-    INSERT INTO
-      posts_categories (post_id, category_id)
-    SELECT
-      ${postId},
-      unnest(
-        ${categoryIds}::INT[]
-      )
-  `;
-}
-
-export async function getPostCategories(postId: number) {
-  const categories = await sql<{ id: number; categoryName: string }[]>`
-    SELECT
-      c.id,
-      c.category_name AS "categoryName"
-    FROM
-      categories c
-      JOIN posts_categories pc ON c.id = pc.category_id
-    WHERE
-      pc.post_id = ${postId}
-  `;
-  return categories;
 }

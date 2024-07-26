@@ -142,6 +142,41 @@ export async function getCategoryIdsByNames(
         ${categoryNames}
       )
   `;
-
   return categories.map((category) => category.id);
+}
+
+export async function addPostCategories(
+  postId: number,
+  categoryIds: number[],
+): Promise<void> {
+  if (categoryIds.length === 0) {
+    throw new Error('No valid categories found');
+  }
+
+  console.log('Category IDs to insert:', categoryIds);
+
+  // Insert categories to post
+  await sql`
+    INSERT INTO
+      posts_categories (post_id, category_id)
+    SELECT
+      ${postId},
+      unnest(
+        ${categoryIds}::INT[]
+      )
+  `;
+}
+
+export async function getPostCategories(postId: number) {
+  const categories = await sql<{ id: number; categoryName: string }[]>`
+    SELECT
+      c.id,
+      c.category_name AS "categoryName"
+    FROM
+      categories c
+      JOIN posts_categories pc ON c.id = pc.category_id
+    WHERE
+      pc.post_id = ${postId}
+  `;
+  return categories;
 }

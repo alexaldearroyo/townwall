@@ -72,7 +72,7 @@ export default function PostClient({ post }: { post: any }) {
                   key={`category-${category.id}`}
                   className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
                 >
-                  {category.id}
+                  {category.categoryName}
                 </span>
               ))}
             </span>
