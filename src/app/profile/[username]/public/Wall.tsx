@@ -14,16 +14,6 @@ type LocationType = {
   country: string;
 };
 
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
-
 export default function Wall({
   user,
   loggedInUserId,
@@ -44,8 +34,6 @@ export default function Wall({
 }) {
   const [location, setLocation] = useState<LocationType | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [newComment, setNewComment] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,56 +68,13 @@ export default function Wall({
     setIsFollowing(!isFollowing);
   };
 
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(`/api/profile/${user.username}/comments`);
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-        const profileComments = await response.json();
-        setComments(profileComments);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(`Failed to fetch comments: ${err.message}`);
-        } else {
-          setError('Failed to fetch comments: An unknown error occurred');
-        }
-      }
-    };
-
-    fetchComments();
-  }, [user.username]);
-
-  const handleCommentSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    try {
-      const response = await fetch(`/api/profile/${user.username}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ content: newComment }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add comment');
-      }
-
-      const comment = await response.json();
-      setComments([comment, ...comments]);
-      setNewComment('');
-    } catch (err) {
-      setError('Failed to add comment');
-    }
-  };
-
   return (
-    <div className="w-full space-y-6">
-      <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        {user.username}'s Wall
+    <div className="w-full space-y-4">
+      <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
+        Profile of{' '}
+        <span className="bg-text-sky-600 dark:bg-text-sky-600">
+          {user.username}
+        </span>
       </h1>
       <div className="flex justify-center items-center mx-auto">
         {user.userImage && user.userImage.startsWith('http') ? (
@@ -145,28 +90,38 @@ export default function Wall({
           <span className="text-9xl">{user.userImage}</span>
         )}
       </div>
-      {!!user.fullName && user.fullName.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Full Name:{' '}
-          </span>
-          {user.fullName}
-        </p>
-      )}
-      {!!user.description && user.description.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Description:{' '}
-          </span>
+
+      <div className="flex justify-center space-x-4">
+        {!!user.fullName && user.fullName.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Full Name:{' '}
+            </span>
+            {user.fullName}
+          </p>
+        )}
+        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Profile Links:{' '}
+            </span>
+            {user.profileLinks}
+          </p>
+        )}
+      </div>
+
+      {!!user.description && (
+        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
           {user.description}
         </p>
       )}
+
       {!!user.interests && user.interests.trim() !== 'null' && (
         <div className="text-center text-gray-700 dark:text-gray-300">
           {user.interests.split(',').map((interest) => (
             <span
               key={`interest-${interest}`}
-              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+              className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
             >
               {interest}
             </span>
@@ -174,26 +129,21 @@ export default function Wall({
         </div>
       )}
 
-      {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Links:{' '}
-          </span>
-          {user.profileLinks}
-        </p>
-      )}
-      {!!user.location && (
-        <div className="w-full">
-          {!!location && (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              <span className="text-sky-800 font-bold dark:text-sky-600">
-                Location:{' '}
-              </span>
-              {location.city}, {location.country}
-            </p>
-          )}
-        </div>
-      )}
+      <div className="flex justify-center space-x-4">
+        {!!user.location && (
+          <div className="w-full">
+            {!!location && (
+              <p className="text-center text-gray-700 dark:text-gray-300">
+                <span className="text-sky-800 font-bold dark:text-sky-600">
+                  Location:{' '}
+                </span>
+                {location.city}, {location.country}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {!!user.birthdate && user.birthdate.trim() !== 'null' && (
         <p className="text-center text-gray-700 dark:text-gray-300">
           <span className="text-sky-800 font-bold dark:text-sky-600">
@@ -210,6 +160,7 @@ export default function Wall({
           {user.profession}
         </p>
       )}
+
       {!!loggedInUserId && loggedInUserId !== user.id && (
         <div className="flex justify-center">
           <button
@@ -222,58 +173,6 @@ export default function Wall({
           </button>
         </div>
       )}
-      <hr className="my-8 border-gray-300 dark:border-gray-600" />
-
-      {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
-        Comments
-      </h2>
-      <div className="space-y-2">
-        {comments.length === 0 ? (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No comments yet
-          </p>
-        ) : (
-          comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-            >
-              <p className="text-gray-700 dark:text-gray-300">
-                {comment.content}
-              </p>
-              <small className="text-gray-500 dark:text-gray-400">
-                {new Date(comment.createdAt).toLocaleString()} by{' '}
-                <a
-                  href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-sky-600 hover:text-indigo-800"
-                >
-                  {comment.username}
-                </a>
-              </small>
-            </div>
-          ))
-        )}
-      </div>
-      <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
-        <div className="flex justify-center w-full">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-        <div className="flex justify-center">
-          <button
-            type="submit"
-            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-          >
-            Submit
-          </button>
-        </div>
-      </form>
     </div>
   );
 }
