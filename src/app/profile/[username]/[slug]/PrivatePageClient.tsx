@@ -106,7 +106,7 @@ export default function PrivatePageClient({
           />
         </div>
         <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <UserComments userId={user.id} />
+          <UserComments userId={user.id} username={user.username} />
         </div>
       </div>
       <div className="w-full md:w-1/2 flex flex-col space-y-8">
