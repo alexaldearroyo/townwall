@@ -46,18 +46,18 @@ const Header: React.FC<HeaderProps> = ({ username }) => {
           <Link href="/search" passHref>
             <MagnifyingGlassIcon className="h-6 w-6 text-orange-50 hover:text-sky-500 mr-4 cursor-pointer" />
           </Link>
-          {!!username && (
-            <Link href={`/profile/${username}/private`} passHref>
-              <HomeIcon className="mr-4 h-6 w-6 text-orange-50 hover:text-sky-500 cursor-pointer" />
-            </Link>
-          )}
           <button onClick={toggleTheme}>
             {theme === 'light' ? (
-              <MoonIcon className="h-6 w-6 text-orange-50 hover:text-sky-500" />
+              <MoonIcon className="mr-4 h-6 w-6 text-orange-50 hover:text-sky-500" />
             ) : (
-              <SunIcon className="h-6 w-6 text-orange-50 hover:text-sky-500" />
+              <SunIcon className="mr-4 h-6 w-6 text-orange-50 hover:text-sky-500" />
             )}
           </button>
+          {!!username && (
+            <Link href={`/profile/${username}/private`} passHref>
+              <HomeIcon className="h-6 w-6 text-orange-50 hover:text-sky-500 cursor-pointer" />
+            </Link>
+          )}
         </div>
       </div>
     </header>

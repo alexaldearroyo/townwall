@@ -5,19 +5,19 @@ import { UserGroupIcon, MapIcon, HeartIcon } from '@heroicons/react/24/outline';
 const features = [
   {
     id: 'connect-with-friends',
-    icon: <UserGroupIcon className="h-12 w-12 text-sky-700" />,
+    icon: <UserGroupIcon className="h-12 w-12 text-sky-600" />,
     title: 'Connect',
     description: 'Connect with people who share your interests.',
   },
   {
     id: 'explore-nearby',
-    icon: <MapIcon className="h-12 w-12 text-sky-700" />,
+    icon: <MapIcon className="h-12 w-12 text-sky-600" />,
     title: 'Explore',
     description: 'Discover content published around you.',
   },
   {
     id: 'share-interests',
-    icon: <HeartIcon className="h-12 w-12 text-sky-700" />,
+    icon: <HeartIcon className="h-12 w-12 text-sky-600" />,
     title: 'Share',
     description: 'Share your hobbies and passions.',
   },
@@ -25,11 +25,11 @@ const features = [
 
 const HomeContent: React.FC = () => {
   return (
-    <div className="w-full max-w-md space-y-6 px-2">
+    <div className="w-full max-w-5xl mx-auto space-y-6 px-2 flex flex-col items-center">
       <div className="flex justify-center">
         <Image src="/town.svg" alt="Town" width={350} height={175} />
       </div>
-      <div className="flex flex-wrap justify-around bg-transparent">
+      <div className="flex flex-nowrap justify-around bg-transparent w-full">
         {features.map((feature) => (
           <div
             key={feature.id}

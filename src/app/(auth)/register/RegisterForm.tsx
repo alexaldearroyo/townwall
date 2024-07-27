@@ -68,9 +68,9 @@ export default function RegisterForm() {
   }
 
   return (
-    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center mt-20 mb-20">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
           Sign Up
         </h1>
         <form onSubmit={handleRegister} className="space-y-6">
@@ -78,7 +78,7 @@ export default function RegisterForm() {
             <p
               className={
                 error === 'User registered successfully'
-                  ? 'text-green-700 text-center'
+                  ? 'text-emerald-600 text-center'
                   : 'text-red-500 text-center'
               }
             >
@@ -139,10 +139,10 @@ export default function RegisterForm() {
               required
             />
           </div>
-          <div>
+          <div className="flex justify-center">
             <button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
             >
               Sign Up
             </button>
