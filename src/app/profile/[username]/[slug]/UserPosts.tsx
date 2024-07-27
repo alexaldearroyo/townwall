@@ -31,17 +31,17 @@ export default function UserPosts({
 }) {
   return (
     <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+      <h2 className="text-lg font-bold text-center text-gray-800 dark:text-white">
         My Posts
       </h2>
       <ul>
         {posts.length > 0 ? (
-          posts.map((post) => (
+          posts.map((post, index) => (
             <li key={`post-${post.id}`} className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <Link
                   href={`/posts/${user.username}/${post.slug}`}
-                  className="text-xl font-semibold text-sky-600 dark:text-blue-400 hover:text-sky-700"
+                  className="text-xl font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
                 >
                   {post.title}
                 </Link>
@@ -50,7 +50,7 @@ export default function UserPosts({
                     {post.categories.map((category) => (
                       <span
                         key={`category-${category.id}`}
-                        className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                        className="ml-1 inline-block bg-orange-100 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
                       >
                         {category.categoryName}
                       </span>
@@ -66,6 +66,9 @@ export default function UserPosts({
               <p className="text-gray-700 dark:text-gray-300">
                 {post.content.slice(0, 100)}...
               </p>
+              {index < posts.length - 1 && (
+                <hr className="border-t mt-4 border-gray-300 dark:border-gray-700" />
+              )}
             </li>
           ))
         ) : (

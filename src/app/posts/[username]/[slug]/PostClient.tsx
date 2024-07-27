@@ -51,16 +51,16 @@ export default function PostClient({ post }: { post: any }) {
   };
 
   return (
-    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start space-y-8 md:space-y-0 md:space-x-8">
       <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
           {post.title}
         </h1>
         <p className="text-center text-gray-600 dark:text-gray-400">
           By{' '}
           <a
             href={`/profile/${post.author}/public`}
-            className="text-blue-700 dark:text-blue-400"
+            className="text-sky-700 dark:text-sky-400"
           >
             {post.author}
           </a>{' '}
@@ -82,7 +82,7 @@ export default function PostClient({ post }: { post: any }) {
 
         <hr className="my-4 border-gray-300 dark:border-gray-600" />
 
-        <h2 className="text-lg font-bold text-center text-gray-900 dark:text-white mt-8">
+        <h2 className="text-lg font-bold text-center text-gray-800 dark:text-white">
           Comments
         </h2>
 
@@ -101,7 +101,7 @@ export default function PostClient({ post }: { post: any }) {
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-blue-400 hover:text-sky-800"
+                  className="text-sky-700 dark:text-sky-600 hover:text-sky-800"
                 >
                   {comment.username}
                 </a>
@@ -120,7 +120,7 @@ export default function PostClient({ post }: { post: any }) {
           <div className="flex justify-center">
             <button
               type="submit"
-              className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
             >
               Submit
             </button>

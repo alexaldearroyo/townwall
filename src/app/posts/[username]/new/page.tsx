@@ -42,7 +42,7 @@ export default async function NewPostPage({
   }
 
   return (
-    <div className="main-content form-container bg-white dark:bg-gray-900">
+    <div className="main-content form-container ">
       <NewPostForm user={user} />
     </div>
   );

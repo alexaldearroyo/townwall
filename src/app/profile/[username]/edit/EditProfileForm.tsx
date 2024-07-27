@@ -179,7 +179,7 @@ export default function EditProfileForm({ user }: { user: any }) {
   return (
     <div className="flex items-center justify-center p-8">
       <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+        <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
           Edit My Profile
         </h1>
         <div className="text-center">
@@ -284,7 +284,7 @@ export default function EditProfileForm({ user }: { user: any }) {
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <form
           onSubmit={handleSubmit}
-          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-800 p-6 rounded-md mx-auto"
+          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-700 p-6 rounded-md mx-auto"
         >
           <div>
             <label

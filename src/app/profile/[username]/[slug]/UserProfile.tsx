@@ -27,7 +27,7 @@ export default function UserProfile({
 }) {
   return (
     <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         My Info
       </h2>
       <div className="flex justify-center items-center mx-auto">
@@ -59,18 +59,27 @@ export default function UserProfile({
           {user.email}
         </p>
       </div>
-
-      {!!user.fullName && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-700 font-bold dark:text-sky-600">
-            Full Name:{' '}
-          </span>
-          {user.fullName}
-        </p>
-      )}
+      <div className="flex justify-center space-x-4">
+        {!!user.fullName && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Full Name:{' '}
+            </span>
+            {user.fullName}
+          </p>
+        )}
+        {!!user.profileLinks && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Profile Links:{' '}
+            </span>
+            {user.profileLinks}
+          </p>
+        )}
+      </div>
 
       {!!user.description && (
-        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 p-4 rounded-lg">
+        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700  p-4 rounded-lg">
           {/* <span className="text-sky-800 font-bold dark:text-sky-600">
             Description:{' '}
           </span> */}
@@ -83,7 +92,7 @@ export default function UserProfile({
           {user.interests.split(',').map((interest) => (
             <span
               key={`interest-${interest}`}
-              className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+              className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
             >
               {interest}
             </span>
@@ -92,14 +101,6 @@ export default function UserProfile({
       )}
 
       <div className="flex justify-center space-x-4">
-        {!!user.profileLinks && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Profile Links:{' '}
-            </span>
-            {user.profileLinks}
-          </p>
-        )}
         {!!location && (
           <p className="text-center text-gray-700 dark:text-gray-300">
             <span className="text-sky-700 font-bold dark:text-sky-600">

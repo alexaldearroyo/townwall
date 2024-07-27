@@ -97,9 +97,9 @@ export default function NewPostForm({ user }: { user: UserType }) {
   }
 
   return (
-    <div className="flex items-center justify-center mt-20 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+    <div className="w-full min-h-screen p-8 flex flex-col items-center space-y-8">
+      <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
           Create a New Post
         </h1>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -145,7 +145,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
             >
               Categories
             </label>
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 items-center">
               <input
                 id="newCategory"
                 name="newCategory"
@@ -182,7 +182,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
             </div>
           </div>
           <div className="flex justify-center">
-            <button className="w-1/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
               Add Post
             </button>
           </div>

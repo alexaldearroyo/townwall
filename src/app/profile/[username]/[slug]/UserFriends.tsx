@@ -44,7 +44,7 @@ export default function UserFriends({
 
   return (
     <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         My Friends
       </h2>
       <div className="flex space-x-4 justify-center">
@@ -66,7 +66,7 @@ export default function UserFriends({
         </button>
       </div>
 
-      <h3 className="text-lg text-center text-gray-900 dark:text-white">
+      <h3 className="text-lg text-center text-sky-700 font-bold dark:text-sky-600">
         Nearby friends
       </h3>
       {!!user.location && (

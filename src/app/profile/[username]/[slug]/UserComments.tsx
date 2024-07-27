@@ -68,7 +68,7 @@ export default function UserComments({
 
   return (
     <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         My Wall
       </h2>
       <div className="space-y-2">
