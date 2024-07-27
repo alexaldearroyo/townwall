@@ -25,7 +25,7 @@ const features = [
 const HomeContent: React.FC = () => {
   return (
     <div className="w-full max-w-md space-y-6">
-      <h2 className="text-center text-xl font-bold text-gray-900 dark:text-white">
+      <h2 className="text-center text-xl font-bold text-gray-800 dark:text-white">
         Start Participating
       </h2>
       <p className="text-center text-gray-600 dark:text-gray-300">

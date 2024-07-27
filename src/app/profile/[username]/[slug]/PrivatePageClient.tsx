@@ -94,7 +94,7 @@ export default function PrivatePageClient({
   }
 
   return (
-    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-start bg-gray-100 dark:bg-gray-900 space-y-8 md:space-y-0 md:space-x-8">
+    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-start space-y-8 md:space-y-0 md:space-x-8">
       <div className="w-full md:w-1/2 p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
         <UserProfile
           user={user}

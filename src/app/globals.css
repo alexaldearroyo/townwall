@@ -1,16 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
+
+/* Importaciones de Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --foreground-color: #000000; /* Text color in light and dark mode */
-  --background-color: #f3f4f6; /* Background color in light mode */
+  --background-color: #ffedd5; /* Background color in light mode */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-color: #000000; /* Text color in dark mode */
-    --background-color: #f3f4f6; /* Background color in dark mode */
+    --background-color: #ffedd5; /* Background color in dark mode */
   }
 }
 
@@ -34,4 +37,9 @@ body {
 .leaflet-container {
   width: 100% !important;
   height: 400px !important;
+}
+
+h1,
+h2 {
+  font-family: 'DM Sans', sans-serif;
 }
