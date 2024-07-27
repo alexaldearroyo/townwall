@@ -177,7 +177,7 @@ export default function EditProfileForm({ user }: { user: any }) {
   }
 
   return (
-    <div className="flex items-center justify-center p-8 bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center p-8">
       <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           Edit My Profile
@@ -206,9 +206,9 @@ export default function EditProfileForm({ user }: { user: any }) {
               formData.userImage
             )}
           </button>
-          <p className="text-gray-500 text-sm">
+          {/* <p className="text-gray-500 text-sm">
             Click on image to change to avatar
-          </p>
+          </p> */}
           {showEmojiPicker && (
             <div className="mt-2 flex flex-wrap justify-center space-x-2">
               {animalEmojis.map((emoji) => (
@@ -222,16 +222,64 @@ export default function EditProfileForm({ user }: { user: any }) {
               ))}
             </div>
           )}
-          <CldUploadWidget uploadPreset="ml_default" onUpload={handleUpload}>
-            {({ open }) => (
-              <button
-                onClick={() => open()}
-                className="mt-4 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-              >
-                Upload Image
-              </button>
-            )}
-          </CldUploadWidget>
+          <div className="mt-4 flex space-x-4 justify-center">
+            <button
+              onClick={handleEmojiClick}
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Change Avatar
+            </button>
+            <CldUploadWidget
+              uploadPreset="ml_default"
+              onUpload={handleUpload}
+              options={{
+                styles: {
+                  palette: {
+                    window: '#FFFFFF',
+                    sourceBg: '#F4F4F5',
+                    windowBorder: '#90A0B3',
+                    tabIcon: '#0369a1',
+                    inactiveTabIcon: '#0284c7',
+                    menuIcons: '#0284c7',
+                    link: '#0284c7',
+                    action: '#059669',
+                    inProgress: '#047857',
+                    complete: '#059669',
+                    error: '#E92626',
+                    textDark: '#1f2937',
+                    textLight: '#FFFFFF',
+                  },
+                  fonts: {
+                    default: null,
+                    "'Open Sans', sans-serif": {
+                      url: 'https://fonts.googleapis.com/css?family=Open+Sans',
+                      active: true,
+                    },
+                  },
+                  frame: {
+                    position: 'fixed',
+                    top: '50%',
+                    left: '50%',
+                    width: '400px',
+                    height: '400px',
+                    transform: 'translate(-50%, -50%)',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                    borderRadius: '8px',
+                    zIndex: '1000',
+                  },
+                },
+              }}
+            >
+              {({ open }) => (
+                <button
+                  onClick={() => open()}
+                  className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                >
+                  Upload Image
+                </button>
+              )}
+            </CldUploadWidget>{' '}
+          </div>
         </div>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <form
@@ -279,7 +327,7 @@ export default function EditProfileForm({ user }: { user: any }) {
             >
               Interests
             </label>
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 items-center">
               <input
                 id="newInterest"
                 name="newInterest"

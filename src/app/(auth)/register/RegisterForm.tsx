@@ -62,7 +62,7 @@ export default function RegisterForm() {
       router.push('/login');
     } else {
       setError(
-        data ? data.errors[0].message : 'Invalid username, email or password',
+        data ? data.errors[0].message : 'Username or password already taken',
       );
     }
   }

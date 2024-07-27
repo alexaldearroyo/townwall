@@ -44,7 +44,7 @@ export default function LoginForm() {
           Sign In
         </h1>
         <form onSubmit={handleLogin} className="space-y-6">
-          {!!error && <p className="text-red-500">{error}</p>}
+          {!!error && <p className="text-red-500 text-center">{error}</p>}
           <div>
             <label
               htmlFor="identifier"

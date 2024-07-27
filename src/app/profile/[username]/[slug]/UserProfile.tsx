@@ -1,17 +1,6 @@
 'use client';
 import { CldImage } from 'next-cloudinary';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
+import React from 'react';
 
 export default function UserProfile({
   user,
@@ -36,31 +25,10 @@ export default function UserProfile({
   error: string | null;
   handleLogout: () => void;
 }) {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(`/api/profile/${user.id}/comments`);
-        if (response.ok) {
-          const profileComments = await response.json();
-          setComments(profileComments);
-        } else {
-          setFetchError('Failed to fetch comments');
-        }
-      } catch (err) {
-        setFetchError('Failed to fetch comments');
-      }
-    };
-
-    fetchComments();
-  }, [user.id]);
-
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        My Wall
+        My Info
       </h2>
       <div className="flex justify-center items-center mx-auto">
         {user.userImage && user.userImage.startsWith('http') ? (
@@ -77,40 +45,42 @@ export default function UserProfile({
         )}
       </div>
 
-      <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-sky-800 font-bold dark:text-sky-600">
-          Username:{' '}
-        </span>
-        {user.username}
-      </p>
-      <p className="text-center text-gray-700 dark:text-gray-300">
-        <span className="text-sky-800 font-bold dark:text-sky-600">
-          Email:{' '}
-        </span>
-        {user.email}
-      </p>
+      <div className="flex justify-center space-x-4">
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-700 font-bold dark:text-sky-600">
+            Username:{' '}
+          </span>
+          {user.username}
+        </p>
+        <p className="text-center text-gray-700 dark:text-gray-300">
+          <span className="text-sky-700 font-bold dark:text-sky-600">
+            Email:{' '}
+          </span>
+          {user.email}
+        </p>
+      </div>
+
       {!!user.fullName && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
+          <span className="text-sky-700 font-bold dark:text-sky-600">
             Full Name:{' '}
           </span>
           {user.fullName}
         </p>
       )}
+
       {!!user.description && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
+        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 p-4 rounded-lg">
+          {/* <span className="text-sky-800 font-bold dark:text-sky-600">
             Description:{' '}
-          </span>
+          </span> */}
           {user.description}
         </p>
       )}
+
       {!!user.interests && (
         <div className="text-center text-gray-700 dark:text-gray-300">
-          {/* <span className="text-sky-800 font-bold dark:text-sky-600">
-            Interests:{' '}
-          </span> */}
-          {user.interests.split(',').map((interest, index, arr) => (
+          {user.interests.split(',').map((interest) => (
             <span
               key={`interest-${interest}`}
               className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
@@ -121,25 +91,28 @@ export default function UserProfile({
         </div>
       )}
 
-      {!!user.profileLinks && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Profile Links:{' '}
-          </span>
-          {user.profileLinks}
-        </p>
-      )}
-      {!!location && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Location:{' '}
-          </span>
-          {location.city}, {location.country}
-        </p>
-      )}
+      <div className="flex justify-center space-x-4">
+        {!!user.profileLinks && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Profile Links:{' '}
+            </span>
+            {user.profileLinks}
+          </p>
+        )}
+        {!!location && (
+          <p className="text-center text-gray-700 dark:text-gray-300">
+            <span className="text-sky-700 font-bold dark:text-sky-600">
+              Location:{' '}
+            </span>
+            {location.city}, {location.country}
+          </p>
+        )}
+      </div>
+
       {!!user.birthdate && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
+          <span className="text-sky-700 font-bold dark:text-sky-600">
             Birthdate:{' '}
           </span>
           {user.birthdate}
@@ -147,7 +120,7 @@ export default function UserProfile({
       )}
       {!!user.profession && (
         <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
+          <span className="text-sky-700 font-bold dark:text-sky-600">
             Profession:{' '}
           </span>
           {user.profession}
@@ -169,39 +142,6 @@ export default function UserProfile({
         >
           Sign Out
         </button>
-      </div>
-      <hr className="my-8 border-gray-300 dark:border-gray-600" />
-      <div className="w-full space-y-4">
-        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Comments
-        </h2>
-        <div className="space-y-2">
-          {comments.length === 0 ? (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              No comments yet
-            </p>
-          ) : (
-            comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-              >
-                <p className="text-gray-700 dark:text-gray-300">
-                  {comment.content}
-                </p>
-                <small className="text-gray-500 dark:text-gray-400">
-                  {new Date(comment.createdAt).toLocaleString()} by{' '}
-                  <a
-                    href={`/profile/${comment.username}/public`}
-                    className="text-sky-800 font-bold dark:text-sky-600 hover:text-indigo-800"
-                  >
-                    {comment.username}
-                  </a>
-                </small>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </div>
   );

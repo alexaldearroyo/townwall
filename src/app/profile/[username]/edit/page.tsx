@@ -10,8 +10,10 @@ export default async function EditProfilePage() {
 
   if (!sessionToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-centered text-red-500">
+          You are not logged in
+        </p>
       </div>
     );
   }
@@ -20,8 +22,10 @@ export default async function EditProfilePage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-centered text-red-500">
+          You are not logged in
+        </p>
       </div>
     );
   }
@@ -42,7 +46,7 @@ export default async function EditProfilePage() {
   };
 
   return (
-    <div className="main-content form-container bg-white dark:bg-gray-900">
+    <div className="main-content form-container">
       <EditProfileForm user={userProfile} />
     </div>
   );
