@@ -23,6 +23,11 @@ const animalEmojis = [
   '🐙',
 ];
 
+console.log(
+  'Cloudinary Cloud Name:',
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+);
+
 export default function EditProfileForm({ user }: { user: any }) {
   const [formData, setFormData] = useState({
     ...user,

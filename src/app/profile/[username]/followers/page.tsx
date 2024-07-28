@@ -1,5 +1,3 @@
-// src/app/profile/[username]/followers/page.tsx
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -12,14 +10,19 @@ type UserType = {
   userImage: string | null;
 };
 
-export default function FollowersPage() {
+export default function FollowersPage({
+  params,
+}: {
+  params: { username: string };
+}) {
+  const { username } = params;
   const [followers, setFollowers] = useState<UserType[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchFollowers = async () => {
       try {
-        const response = await fetch('/api/followers');
+        const response = await fetch(`/api/followers?username=${username}`);
         if (!response.ok) {
           throw new Error('Failed to fetch followers');
         }
@@ -31,7 +34,7 @@ export default function FollowersPage() {
     };
 
     fetchFollowers();
-  }, []);
+  }, [username]);
 
   return <FollowersList followers={followers} error={error} />;
 }

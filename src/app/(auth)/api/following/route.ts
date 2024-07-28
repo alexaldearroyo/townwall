@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { getFollowingUsers } from '../../../../../database/follows';
+import { getFollowingUsersByUsername } from '../../../../../database/follows';
 
 export async function GET(request: NextRequest) {
-  const sessionToken = request.cookies.get('session')?.value;
+  const { searchParams } = new URL(request.url);
+  const username = searchParams.get('username');
 
-  if (!sessionToken) {
+  if (!username) {
     return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 },
+      { error: 'Username is required' },
+      { status: 400 },
     );
   }
 
-  const session = await getSessionByToken(sessionToken);
-  if (!session) {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  try {
+    const followingUsers = await getFollowingUsersByUsername(username);
+    return NextResponse.json(followingUsers);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
   }
-
-  const followingUsers = await getFollowingUsers(session.userId);
-
-  return NextResponse.json(followingUsers);
 }

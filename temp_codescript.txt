@@ -1,1082 +1,209 @@
-// database/categories.ts:
+// src/app/profile/[username]/followers/FollowersList.tsx:
 
-import { sql } from './connect';
-
-export type Category = {
-  id: number;
-  categoryName: string;
-  description?: string;
-};
-
-function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, (txt) => {
-    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-  });
-}
-
-export async function getCategories(): Promise<Category[]> {
-  const categories = await sql<
-    { id: number; categoryName: string; description: string | null }[]
-  >`
-    SELECT
-      id,
-      category_name AS "categoryName",
-      description
-    FROM
-      categories
-  `;
-
-  return categories.map((category) => ({
-    ...category,
-    description: category.description ?? undefined,
-  })) as Category[];
-}
-
-export async function getCategoryByName(
-  categoryName: string,
-): Promise<Category | undefined> {
-  const categories = await sql<
-    { id: number; categoryName: string; description: string | null }[]
-  >`
-    SELECT
-      id,
-      category_name AS "categoryName",
-      description
-    FROM
-      categories
-    WHERE
-      lower(category_name) = lower(
-        ${categoryName}
-      )
-  `;
-
-  if (categories.length === 0) {
-    return undefined;
-  }
-
-  const category = categories[0];
-  if (!category) {
-    return undefined;
-  }
-
-  return {
-    id: category.id,
-    categoryName: category.categoryName,
-    description: category.description ?? undefined,
-  };
-}
-
-export async function createCategory(
-  categoryName: string,
-  description?: string,
-): Promise<Category> {
-  const titleCaseCategoryName = toTitleCase(categoryName);
-
-  const categories = await sql<
-    { id: number; categoryName: string; description: string | null }[]
-  >`
-    INSERT INTO
-      categories (category_name, description)
-    VALUES
-      (
-        ${titleCaseCategoryName},
-        ${description ?? null}
-      )
-    RETURNING
-      id,
-      category_name AS "categoryName",
-      description
-  `;
-
-  const category = categories[0];
-  if (!category) {
-    throw new Error('Failed to create category');
-  }
-
-  return {
-    id: category.id,
-    categoryName: category.categoryName,
-    description: category.description ?? undefined,
-  };
-}
-
-export async function addUserCategory(
-  userId: number,
-  categoryId: number,
-): Promise<void> {
-  await sql`
-    INSERT INTO
-      users_categories (user_id, category_id)
-    VALUES
-      (
-        ${userId},
-        ${categoryId}
-      )
-  `;
-}
-
-export async function getUserCategories(userId: number): Promise<Category[]> {
-  const categories = await sql<
-    { id: number; categoryName: string; description: string | null }[]
-  >`
-    SELECT
-      c.id,
-      c.category_name AS "categoryName",
-      c.description
-    FROM
-      categories c
-      INNER JOIN users_categories uc ON c.id = uc.category_id
-    WHERE
-      uc.user_id = ${userId}
-  `;
-
-  return categories.map((category) => ({
-    ...category,
-    description: category.description ?? undefined,
-  })) as Category[];
-}
-
-export async function removeUserCategory(
-  userId: number,
-  categoryName: string,
-): Promise<void> {
-  const category = await getCategoryByName(categoryName);
-
-  if (!category) {
-    throw new Error('Category not found');
-  }
-
-  await sql`
-    DELETE FROM users_categories
-    WHERE
-      user_id = ${userId}
-      AND category_id = ${category.id}
-  `;
-}
-
-export async function removePostCategory(
-  postId: number,
-  categoryName: string,
-): Promise<void> {
-  const category = await getCategoryByName(categoryName);
-
-  if (!category) {
-    throw new Error('Category not found');
-  }
-
-  await sql`
-    DELETE FROM posts_categories
-    WHERE
-      post_id = ${postId}
-      AND category_id = ${category.id}
-  `;
-}
-
-export async function getCategoryIdsByNames(
-  categoryNames: string[],
-): Promise<number[]> {
-  const categories = await sql<{ id: number; categoryName: string }[]>`
-    SELECT
-      id,
-      category_name
-    FROM
-      categories
-    WHERE
-      category_name = ANY (
-        ${categoryNames}
-      )
-  `;
-  return categories.map((category) => category.id);
-}
-
-export async function addPostCategories(
-  postId: number,
-  categoryIds: number[],
-): Promise<void> {
-  if (categoryIds.length === 0) {
-    throw new Error('No valid categories found');
-  }
-
-  console.log('Category IDs to insert:', categoryIds);
-
-  // Insert categories to post
-  await sql`
-    INSERT INTO
-      posts_categories (post_id, category_id)
-    SELECT
-      ${postId},
-      unnest(
-        ${categoryIds}::INT[]
-      )
-  `;
-}
-
-export async function getPostCategories(postId: number) {
-  const categories = await sql<{ id: number; categoryName: string }[]>`
-    SELECT
-      c.id,
-      c.category_name AS "categoryName"
-    FROM
-      categories c
-      JOIN posts_categories pc ON c.id = pc.category_id
-    WHERE
-      pc.post_id = ${postId}
-  `;
-  return categories;
-}
-
-export async function findOrCreateCategory(categoryName: string) {
-  const titleCaseCategoryName = categoryName.replace(/\w\S*/g, (txt) => {
-    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-  });
-
-  let [category] = await sql<
-    { id: number; categoryName: string; description: string | null }[]
-  >`
-    SELECT
-      *
-    FROM
-      categories
-    WHERE
-      category_name = ${titleCaseCategoryName}
-    LIMIT
-      1
-  `;
-
-  if (!category) {
-    [category] = await sql<
-      { id: number; categoryName: string; description: string | null }[]
-    >`
-      INSERT INTO
-        categories (category_name)
-      VALUES
-        (
-          ${titleCaseCategoryName}
-        )
-      RETURNING
-        *
-    `;
-  }
-
-  return category;
-}
-
-----------------------------------------
-
-// src/app/posts/[username]/new/NewPostForm.tsx:
-
-// src/app/posts/[username]/new/NewPostForm.tsx:
+// src/app/profile/[username]/followers/FollowersList.tsx
 
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { findOrCreateCategory } from '../../../../../database/categories';
+import React from 'react';
 
 type UserType = {
+  email: string;
   id: number;
   username: string;
+  userImage: string | null;
 };
 
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryIds: string[] | null; // Ajuste aquí
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
+type FollowersListProps = {
+  followers: UserType[];
+  error: string | null;
 };
 
-function generateSlug(title: string): string {
-  return title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-}
-
-export default function NewPostForm({ user }: { user: UserType }) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [newCategory, setNewCategory] = useState('');
-  const router = useRouter();
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const slug = generateSlug(title);
-
-    try {
-      const categoriesArray = Array.isArray(categories) ? categories : [];
-      const categoryIds = await Promise.all(
-        categoriesArray.map(async (categoryName) => {
-          const category = await findOrCreateCategory(categoryName);
-          return category!.id;
-        }),
-      );
-
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: user.id,
-          title,
-          content,
-          slug,
-          categoryIds,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const post: PostType = await response.json();
-        router.push(`/posts/${user.username}/${post.slug}`);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create post');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
-    }
-  }
-
-  function handleAddCategory() {
-    const titleCaseCategory = toTitleCase(newCategory);
-
-    if (
-      newCategory &&
-      categories.length < 7 &&
-      !categories.includes(titleCaseCategory)
-    ) {
-      setCategories([...categories, titleCaseCategory]);
-      setNewCategory('');
-    } else if (categories.includes(titleCaseCategory)) {
-      setError('Category already added');
-    }
-  }
-
-  function handleRemoveCategory(categoryToRemove: string) {
-    setCategories(
-      categories.filter((category) => category !== categoryToRemove),
-    );
-  }
-
-  function toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, (txt) => {
-      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-    });
-  }
-
+const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
   return (
-    <div className="w-full min-h-screen p-8 flex flex-col items-center space-y-8">
-      <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-          Create a New Post
+    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Users Following You
         </h1>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {!!error && <p className="text-red-500 text-center">{error}</p>}
-          <div>
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Title
-            </label>
-            <input
-              id="title"
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Write the title here"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="content"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Content
-            </label>
-            <textarea
-              id="content"
-              name="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your post here"
-              required
-              className="mt-1 block w-full h-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="categories"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Categories
-            </label>
-            <div className="flex space-x-2 items-center">
-              <input
-                id="newCategory"
-                name="newCategory"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                placeholder="Add a new category"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleAddCategory}
-                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium
-                text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+        {!!error && <p className="text-red-500 text-center">{error}</p>}
+        <ul className="flex flex-wrap space-x-2">
+          {followers.length > 0 ? (
+            followers.map((user) => (
+              <li
+                key={`user-${user.id}`}
+                className="flex items-center space-x-2 mb-2"
               >
-                Add
-              </button>
-            </div>
-            <div className="mt-2 space-y-2">
-              {categories.map((category) => (
-                <span
-                  key={`category-${category}`}
-                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-                >
-                  {category}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCategory(category)}
-                    className="ml-2 text-gray-500 hover:text-gray-700"
-                  >
-                    &times;
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-center">
-            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-              Add Post
-            </button>
-          </div>
-        </form>
+                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
+                <div>
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+                    <a href={`/profile/${user.username}/public`}>
+                      <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-300 text-gray-700 mr-2">
+                        {user.username}
+                      </span>
+                    </a>
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    {user.email}
+                  </p>
+                </div>
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              No one is following you.
+            </p>
+          )}
+        </ul>
       </div>
     </div>
   );
-}
+};
+
+export default FollowersList;
 
 ----------------------------------------
 
-// src/app/profile/[username]/edit/EditProfileForm.tsx:
+// src/app/profile/[username]/followers/page.tsx:
+
+// src/app/profile/[username]/followers/page.tsx
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { CldUploadWidget } from 'next-cloudinary';
-import { CldImage } from 'next-cloudinary';
-import { findOrCreateCategory } from '../../../../../database/categories';
+import React, { useEffect, useState } from 'react';
+import FollowersList from './FollowersList';
 
-const animalEmojis = [
-  '🐶',
-  '🐱',
-  '🐭',
-  '🐹',
-  '🐰',
-  '🦊',
-  '🐻',
-  '🐼',
-  '🐨',
-  '🐯',
-  '🦁',
-  '🐮',
-  '🐷',
-  '🐸',
-  '🐙',
-];
+type UserType = {
+  email: string;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
 
-export default function EditProfileForm({ user }: { user: any }) {
-  const [formData, setFormData] = useState({
-    ...user,
-    userImage:
-      user.userImage ||
-      animalEmojis[Math.floor(Math.random() * animalEmojis.length)],
-  });
+export default function FollowersPage() {
+  const [followers, setFollowers] = useState<UserType[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [newInterest, setNewInterest] = useState('');
-  const router = useRouter();
 
   useEffect(() => {
-    setFormData(user);
-    setInterests(user.interests ? user.interests.split(',') : []);
-  }, [user]);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...formData,
-          interests: JSON.stringify(interests),
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setFormData(updatedUser.user);
-        router.push(
-          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
-        );
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
-    }
-  }
-
-  async function handleDelete() {
-    try {
-      const response = await fetch('/api/delete', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        router.push('/register');
-      } else {
-        throw new Error('Failed to delete user');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
-    }
-  }
-
-  function handleChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    const { name, value } = event.target;
-    setFormData((prevData: any) => ({
-      ...prevData,
-      [name]: value,
-    }));
-  }
-
-  function handleEmojiClick() {
-    setShowEmojiPicker(!showEmojiPicker);
-  }
-
-  function handleEmojiSelect(emoji: string) {
-    setFormData((prevData: any) => ({
-      ...prevData,
-      userImage: emoji,
-    }));
-    setShowEmojiPicker(false);
-  }
-
-  async function handleAddInterest() {
-    const titleCaseInterest = toTitleCase(newInterest);
-
-    if (
-      newInterest &&
-      interests.length < 7 &&
-      !interests.includes(titleCaseInterest)
-    ) {
+    const fetchFollowers = async () => {
       try {
-        const category = await findOrCreateCategory(titleCaseInterest);
-
-        await fetch('/api/interests', {
-          method: 'POST',
-          body: JSON.stringify({ userId: user.id, categoryId: category?.id }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        setInterests([...interests, titleCaseInterest]);
-        setNewInterest('');
-      } catch (error) {
-        setError('Failed to add interest');
+        const response = await fetch('/api/followers');
+        if (!response.ok) {
+          throw new Error('Failed to fetch followers');
+        }
+        const data = await response.json();
+        setFollowers(data);
+      } catch (error: any) {
+        setError(error.message);
       }
-    } else if (interests.includes(titleCaseInterest)) {
-      setError('Interest already added');
-    }
-  }
+    };
 
-  async function handleRemoveInterest(interestToRemove: string) {
-    try {
-      const response = await fetch('/api/interests', {
-        method: 'DELETE',
-        body: JSON.stringify({
-          categoryName: interestToRemove,
-          userId: user.id,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    fetchFollowers();
+  }, []);
 
-      if (!response.ok) {
-        throw new Error('Failed to remove interest');
-      }
+  return <FollowersList followers={followers} error={error} />;
+}
 
-      setInterests(
-        interests.filter((interest) => interest !== interestToRemove),
-      );
-    } catch {
-      setError('Failed to remove interest');
-    }
-  }
+----------------------------------------
 
-  function toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, (txt) => {
-      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-    });
-  }
+// src/app/profile/[username]/following/FollowingList.tsx:
 
-  function handleUpload(result: any) {
-    if (result.event === 'success') {
-      setFormData((prevData: any) => ({
-        ...prevData,
-        userImage: result.info.secure_url,
-      }));
-    }
-  }
+'use client';
 
+import React, { ReactNode } from 'react';
+
+type UserType = {
+  email: ReactNode;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
+
+type FollowingListProps = {
+  following: UserType[];
+  error: string | null;
+};
+
+const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
   return (
-    <div className="flex items-center justify-center p-8">
-      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-          Edit My Profile
+    <div className="flex items-center justify-center mt-20 mb-20 ">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          Users You Follow
         </h1>
-        <div className="text-center">
-          <button
-            className="text-9xl cursor-pointer"
-            onClick={handleEmojiClick}
-            tabIndex={0}
-            style={{
-              borderRadius: '50%',
-              overflow: 'hidden',
-              width: '150px',
-              height: '150px',
-            }}
-          >
-            {formData.userImage.startsWith('http') ? (
-              <CldImage
-                src={formData.userImage}
-                width="150"
-                height="150"
-                crop="fill"
-                alt=""
-              />
-            ) : (
-              formData.userImage
-            )}
-          </button>
-          {/* <p className="text-gray-500 text-sm">
-            Click on image to change to avatar
-          </p> */}
-          {showEmojiPicker && (
-            <div className="mt-2 flex flex-wrap justify-center space-x-2">
-              {animalEmojis.map((emoji) => (
-                <button
-                  key={`emoji-${emoji}`}
-                  className="text-2xl cursor-pointer"
-                  onClick={() => handleEmojiSelect(emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="mt-4 flex space-x-4 justify-center">
-            <button
-              onClick={handleEmojiClick}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Change Avatar
-            </button>
-            <CldUploadWidget
-              uploadPreset="ml_default"
-              onUpload={handleUpload}
-              options={{
-                styles: {
-                  palette: {
-                    window: '#FFFFFF',
-                    sourceBg: '#F4F4F5',
-                    windowBorder: '#90A0B3',
-                    tabIcon: '#0369a1',
-                    inactiveTabIcon: '#0284c7',
-                    menuIcons: '#0284c7',
-                    link: '#0284c7',
-                    action: '#059669',
-                    inProgress: '#047857',
-                    complete: '#059669',
-                    error: '#E92626',
-                    textDark: '#1f2937',
-                    textLight: '#FFFFFF',
-                  },
-                  fonts: {
-                    default: null,
-                    "'Open Sans', sans-serif": {
-                      url: 'https://fonts.googleapis.com/css?family=Open+Sans',
-                      active: true,
-                    },
-                  },
-                  frame: {
-                    position: 'fixed',
-                    top: '50%',
-                    left: '50%',
-                    width: '400px',
-                    height: '400px',
-                    transform: 'translate(-50%, -50%)',
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-                    borderRadius: '8px',
-                    zIndex: '1000',
-                  },
-                },
-              }}
-            >
-              {({ open }) => (
-                <button
-                  onClick={() => open()}
-                  className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                >
-                  Upload Image
-                </button>
-              )}
-            </CldUploadWidget>{' '}
-          </div>
-        </div>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-700 p-6 rounded-md mx-auto"
-        >
-          <div>
-            <label
-              htmlFor="fullName"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Full Name
-            </label>
-            <input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder={formData.fullName ? '' : 'Enter your full name'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder={
-                formData.description ? '' : 'Enter a description of yourself'
-              }
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="interests"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Interests
-            </label>
-            <div className="flex space-x-2 items-center">
-              <input
-                id="newInterest"
-                name="newInterest"
-                value={newInterest}
-                onChange={(e) => setNewInterest(e.target.value)}
-                placeholder="Add a new interest"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleAddInterest}
-                className="py-2 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                style={{ height: 'calc(2rem + 2px)' }}
+        <ul className="flex flex-wrap space-x-2">
+          {following.length > 0 ? (
+            following.map((user) => (
+              <li
+                key={`user-${user.id}`}
+                className="flex items-center space-x-2 mb-2"
               >
-                Add
-              </button>
-            </div>
-            <div className="mt-2 space-y-2">
-              {interests.map((interest) => (
-                <span
-                  key={`interest-${interest}`}
-                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-                >
-                  {interest}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveInterest(interest)}
-                    className="ml-2 text-gray-500 hover:text-gray-700"
-                  >
-                    &times;
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="profileLinks"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Personal Links
-            </label>
-            <input
-              id="profileLinks"
-              name="profileLinks"
-              value={formData.profileLinks}
-              onChange={handleChange}
-              placeholder={
-                formData.profileLinks ? '' : 'Enter your personal links'
-              }
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="birthdate"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Birth Date
-            </label>
-            <input
-              id="birthdate"
-              name="birthdate"
-              type="date"
-              value={formData.birthdate}
-              onChange={handleChange}
-              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profession"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Profession
-            </label>
-            <input
-              id="profession"
-              name="profession"
-              value={formData.profession}
-              onChange={handleChange}
-              placeholder={formData.profession ? '' : 'Enter your profession'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div className="flex justify-center space-x-4">
-            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-              Save Changes
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Delete User
-            </button>
-          </div>
-        </form>
+                <div className="flex items-center space-x-2">
+                  <div className="text-xl font-bold text-center text-gray-800 dark:text-white">
+                    <a href={`/profile/${user.username}/public`}>
+                      <span className="inline-block bg-gray-200 hover:bg-gray-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
+                        {user.username}
+                      </span>{' '}
+                    </a>
+                  </div>
+                </div>
+                {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
+                {/* <div className="text-sm text-gray-500 dark:text-gray-300">
+                  {user.location ? user.location : 'Location not available'}
+                </div> */}
+              </li>
+            ))
+          ) : (
+            <p className="text-center text-gray-700 dark:text-gray-300">
+              You are not following anyone.
+            </p>
+          )}
+        </ul>
       </div>
     </div>
   );
-}
+};
+
+export default FollowingList;
 
 ----------------------------------------
 
-// src/app/(auth)/api/posts/route.ts:
+// src/app/profile/[username]/following/page.tsx:
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { createPost, getPostsByUserId } from '../../../../../database/posts';
-import {
-  addPostCategory,
-  getPostCategories,
-} from '../../../../../database/posts_categories';
-import { findOrCreateCategory } from '../../../../../database/categories';
+'use client';
 
-// Crear Post
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const sessionToken = request.cookies.get('session')?.value;
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
+import React, { useEffect, useState } from 'react';
+import FollowingList from './FollowingList';
 
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
-    }
+type UserType = {
+  email: React.ReactNode;
+  id: number;
+  username: string;
+  userImage: string | null;
+};
 
-    const { title, content, slug, icon, categoryNames } = await request.json();
+export default function FollowingPage() {
+  const [following, setFollowing] = useState<UserType[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-    if (!title || !content || !slug) {
-      return NextResponse.json(
-        { error: 'Title, content, and slug are required' },
-        { status: 400 },
-      );
-    }
-
-    // Verifica que categoryNames esté definido y sea un array
-    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
-
-    // Crear el post
-    const post = await createPost(session.userId, title, content, slug, icon);
-
-    // Crear nuevas categorías y asociarlas al post
-    const categoryIds = await Promise.all(
-      categoriesArray.map(async (categoryName) => {
-        const category = await findOrCreateCategory(categoryName);
-        if (category) {
-          await addPostCategory(post.id, category.id);
-          return category.id;
+  useEffect(() => {
+    const fetchFollowing = async () => {
+      try {
+        const response = await fetch('/api/following');
+        if (!response.ok) {
+          throw new Error('Failed to fetch following users');
         }
-        return null;
-      }),
-    );
+        const data = await response.json();
+        setFollowing(data);
+      } catch (error: any) {
+        setError(error.message);
+      }
+    };
 
-    return NextResponse.json(
-      { ...post, userId: session.userId, categoryIds },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
+    fetchFollowing();
+  }, []);
 
-// Obtener Posts por Usuario
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(parseInt(userId, 10));
-
-    const postsWithCategories = await Promise.all(
-      posts.map(async (post) => {
-        const categories = await getPostCategories(post.id);
-        return { ...post, categories };
-      }),
-    );
-
-    return NextResponse.json(postsWithCategories);
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/interests/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  findOrCreateCategory,
-  addUserCategory,
-  getUserCategories,
-  removeUserCategory,
-} from '../../../../../database/categories';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { NextRequest } from 'next/server';
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { categoryName } = body;
-
-    const sessionToken = request.cookies.get('session');
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const session = await getSessionByToken(sessionToken.value);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = session.userId;
-    const category = await findOrCreateCategory(categoryName);
-
-    if (category) {
-      await addUserCategory(userId, category.id);
-    }
-
-    const userCategories = await getUserCategories(userId);
-    return NextResponse.json({ categories: userCategories });
-  } catch {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { categoryName, userId } = body;
-
-    const sessionToken = request.cookies.get('session');
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const session = await getSessionByToken(sessionToken.value);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const category = await findOrCreateCategory(categoryName);
-    if (category) {
-      await removeUserCategory(userId, category.id.toString());
-    }
-
-    const userCategories = await getUserCategories(userId);
-    return NextResponse.json({ categories: userCategories });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
-  }
+  return <FollowingList following={following} error={error} />;
 }
 
 ----------------------------------------
