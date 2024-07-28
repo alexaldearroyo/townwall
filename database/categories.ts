@@ -222,3 +222,39 @@ export async function getPostCategories(postId: number) {
   `;
   return categories;
 }
+
+export async function findOrCreateCategory(categoryName: string) {
+  const titleCaseCategoryName = categoryName.replace(/\w\S*/g, (txt) => {
+    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+  });
+
+  let [category] = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      *
+    FROM
+      categories
+    WHERE
+      category_name = ${titleCaseCategoryName}
+    LIMIT
+      1
+  `;
+
+  if (!category) {
+    [category] = await sql<
+      { id: number; categoryName: string; description: string | null }[]
+    >`
+      INSERT INTO
+        categories (category_name)
+      VALUES
+        (
+          ${titleCaseCategoryName}
+        )
+      RETURNING
+        *
+    `;
+  }
+
+  return category;
+}

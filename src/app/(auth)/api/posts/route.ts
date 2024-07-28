@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionByToken } from '../../../../../database/sessions';
 import { createPost, getPostsByUserId } from '../../../../../database/posts';
 import {
-  addPostCategory,
+  addPostCategories,
+  findOrCreateCategory,
   getPostCategories,
-} from '../../../../../database/posts_categories';
+} from '../../../../../database/categories';
 
-// Crear Post
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const sessionToken = request.cookies.get('session')?.value;
@@ -31,40 +31,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verifica que categoryNames esté definido y sea un array
     const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
 
-    // Crear el post
     const post = await createPost(session.userId, title, content, slug, icon);
 
-    // Construir URL completa para la API de categorías
-    const baseUrl = new URL(request.url).origin;
-
-    // Crear nuevas categorías y asociarlas al post
-    const newCategoryResponses = await Promise.all(
+    const categoryIds = await Promise.all(
       categoriesArray.map(async (categoryName) => {
-        const response = await fetch(`${baseUrl}/api/categories`, {
-          method: 'POST',
-          body: JSON.stringify({ categoryName, description: '' }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const jsonResponse = await response.json();
-        if (!jsonResponse.category || !jsonResponse.category.id) {
-          console.error('Invalid category response:', jsonResponse);
-          throw new Error('Invalid category response');
+        const category = await findOrCreateCategory(categoryName);
+        if (category) {
+          return category.id;
         }
-
-        // Asignar categoría al post
-        await addPostCategory(post.id, jsonResponse.category.id);
-
-        return jsonResponse.category.id;
+        return null;
       }),
     );
 
+    await addPostCategories(
+      post.id,
+      categoryIds.filter((id): id is number => id !== null),
+    );
+
     return NextResponse.json(
-      { ...post, userId: session.userId, categoryIds: newCategoryResponses },
+      { ...post, userId: session.userId, categoryIds },
       { status: 201 },
     );
   } catch (error) {
@@ -76,7 +63,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Obtener Posts por Usuario
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
   const userId = url.searchParams.get('userId');

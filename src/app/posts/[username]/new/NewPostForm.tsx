@@ -1,5 +1,3 @@
-// src/app/posts/[username]/new/NewPostForm.tsx:
-
 'use client';
 
 import React, { useState } from 'react';
@@ -40,9 +38,6 @@ export default function NewPostForm({ user }: { user: UserType }) {
     const slug = generateSlug(title);
 
     try {
-      // Verifica que categories sea un array
-      const categoriesArray = Array.isArray(categories) ? categories : [];
-
       const response = await fetch('/api/posts', {
         method: 'POST',
         body: JSON.stringify({
@@ -50,7 +45,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
           title,
           content,
           slug,
-          categoryNames: categoriesArray,
+          categoryNames: categories,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +113,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Write the title here"
               required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              className="mt-1 block w-full               px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
           </div>
           <div>
@@ -157,8 +152,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
               <button
                 type="button"
                 onClick={handleAddCategory}
-                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium
-                text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
               >
                 Add
               </button>
@@ -167,7 +161,7 @@ export default function NewPostForm({ user }: { user: UserType }) {
               {categories.map((category) => (
                 <span
                   key={`category-${category}`}
-                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                  className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
                 >
                   {category}
                   <button

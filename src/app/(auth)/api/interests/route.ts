@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
 import {
-  createCategory,
-  getCategoryByName,
+  findOrCreateCategory,
   addUserCategory,
   getUserCategories,
   removeUserCategory,
 } from '../../../../../database/categories';
 import { getSessionByToken } from '../../../../../database/sessions';
 import { NextRequest } from 'next/server';
-
-function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, (txt) => {
-    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-  });
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,14 +24,11 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.userId;
-    const titleCaseCategoryName = toTitleCase(categoryName);
-    let category = await getCategoryByName(titleCaseCategoryName);
+    const category = await findOrCreateCategory(categoryName);
 
-    if (!category) {
-      category = await createCategory(titleCaseCategoryName);
+    if (category) {
+      await addUserCategory(userId, category.id);
     }
-
-    await addUserCategory(userId, category.id);
 
     const userCategories = await getUserCategories(userId);
     return NextResponse.json({ categories: userCategories });
@@ -65,8 +55,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const titleCaseCategoryName = toTitleCase(categoryName);
-    await removeUserCategory(userId, titleCaseCategoryName);
+    const category = await findOrCreateCategory(categoryName);
+    if (category) {
+      await removeUserCategory(userId, category.id.toString());
+    }
 
     const userCategories = await getUserCategories(userId);
     return NextResponse.json({ categories: userCategories });

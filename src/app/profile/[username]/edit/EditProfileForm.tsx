@@ -116,19 +116,22 @@ export default function EditProfileForm({ user }: { user: any }) {
       interests.length < 7 &&
       !interests.includes(titleCaseInterest)
     ) {
-      const response = await fetch('/api/interests', {
-        method: 'POST',
-        body: JSON.stringify({ categoryName: titleCaseInterest }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      try {
+        const response = await fetch('/api/interests', {
+          method: 'POST',
+          body: JSON.stringify({ categoryName: titleCaseInterest }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setInterests(data.categories.map((cat: any) => cat.categoryName));
-        setNewInterest('');
-      } else {
+        if (response.ok) {
+          setInterests([...interests, titleCaseInterest]);
+          setNewInterest('');
+        } else {
+          throw new Error('Failed to add interest');
+        }
+      } catch (error) {
         setError('Failed to add interest');
       }
     } else if (interests.includes(titleCaseInterest)) {
@@ -206,9 +209,6 @@ export default function EditProfileForm({ user }: { user: any }) {
               formData.userImage
             )}
           </button>
-          {/* <p className="text-gray-500 text-sm">
-            Click on image to change to avatar
-          </p> */}
           {showEmojiPicker && (
             <div className="mt-2 flex flex-wrap justify-center space-x-2">
               {animalEmojis.map((emoji) => (
@@ -278,7 +278,7 @@ export default function EditProfileForm({ user }: { user: any }) {
                   Upload Image
                 </button>
               )}
-            </CldUploadWidget>{' '}
+            </CldUploadWidget>
           </div>
         </div>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
@@ -349,7 +349,7 @@ export default function EditProfileForm({ user }: { user: any }) {
               {interests.map((interest) => (
                 <span
                   key={`interest-${interest}`}
-                  className="inline-block bg-amber-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
+                  className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
                 >
                   {interest}
                   <button
