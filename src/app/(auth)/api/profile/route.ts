@@ -88,12 +88,6 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await getUserById(session.userId);
-    if (!user) {
-      return NextResponse.json(
-        { errors: [{ message: 'User not found' }] },
-        { status: 404 },
-      );
-    }
 
     console.log(user);
 

@@ -36,13 +36,6 @@ export async function POST(request: Request) {
 
   const user = await getUserById(session.userId);
 
-  if (!user) {
-    return NextResponse.json(
-      { errors: [{ message: 'User not found' }] },
-      { status: 404 },
-    );
-  }
-
   await deleteUserById(user.id);
   await deleteSessionByToken(sessionToken);
 

@@ -4,7 +4,6 @@ import { createPost, getPostsByUserId } from '../../../../../database/posts';
 import {
   addPostCategory,
   getPostCategories,
-  PostCategory,
 } from '../../../../../database/posts_categories';
 
 // Crear Post

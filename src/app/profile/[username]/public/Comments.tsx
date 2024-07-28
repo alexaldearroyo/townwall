@@ -26,16 +26,15 @@ export default function Comments({ username }: { username: string }) {
         }
         const profileComments = await response.json();
         setComments(profileComments);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(`Failed to fetch comments: ${err.message}`);
-        } else {
-          setError('Failed to fetch comments: An unknown error occurred');
-        }
+      } catch (err: any) {
+        setError(`Failed to fetch comments: ${err.message}`);
       }
     };
 
-    fetchComments();
+    fetchComments().catch((err) => {
+      console.error('Error fetching comments:', err);
+      setError(`Failed to fetch comments: ${err.message}`);
+    });
   }, [username]);
 
   const handleCommentSubmit = async (
@@ -58,8 +57,8 @@ export default function Comments({ username }: { username: string }) {
       const comment = await response.json();
       setComments([comment, ...comments]);
       setNewComment('');
-    } catch (err) {
-      setError('Failed to add comment');
+    } catch (err: any) {
+      setError(`Failed to add comment: ${err.message}`);
     }
   };
 
@@ -77,7 +76,7 @@ export default function Comments({ username }: { username: string }) {
         ) : (
           comments.map((comment) => (
             <div
-              key={comment.id}
+              key={`comment-${comment.id}`}
               className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
             >
               <p className="text-gray-700 dark:text-gray-300">
@@ -107,10 +106,7 @@ export default function Comments({ username }: { username: string }) {
           />
         </div>
         <div className="flex justify-center">
-          <button
-            type="submit"
-            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-          >
+          <button className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
             Submit
           </button>
         </div>

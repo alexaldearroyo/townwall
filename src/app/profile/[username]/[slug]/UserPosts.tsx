@@ -45,7 +45,7 @@ export default function UserPosts({
                 >
                   {post.title}
                 </Link>
-                {post.categories && post.categories.length > 0 && (
+                {post.categories.length > 0 && (
                   <div className="mt-2">
                     {post.categories.map((category) => (
                       <span

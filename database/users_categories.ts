@@ -36,10 +36,12 @@ export async function removeUserCategory(
 export async function getUserCategories(
   userId: number,
 ): Promise<UserCategory[]> {
-  const categories = await sql<UserCategory[]>`
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     SELECT
       c.id AS id,
-      c.category_name AS categoryname,
+      c.category_name AS "categoryName",
       c.description AS description
     FROM
       categories c
@@ -47,5 +49,8 @@ export async function getUserCategories(
     WHERE
       uc.user_id = ${userId}
   `;
-  return categories;
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  }));
 }

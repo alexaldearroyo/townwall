@@ -12,8 +12,10 @@ function toTitleCase(str: string): string {
   });
 }
 
-export function getCategories(): Promise<Category[]> {
-  return sql<Category[]>`
+export async function getCategories(): Promise<Category[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     SELECT
       id,
       category_name AS "categoryName",
@@ -21,12 +23,19 @@ export function getCategories(): Promise<Category[]> {
     FROM
       categories
   `;
+
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as Category[];
 }
 
 export async function getCategoryByName(
   categoryName: string,
 ): Promise<Category | undefined> {
-  const categories = await sql<Category[]>`
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     SELECT
       id,
       category_name AS "categoryName",
@@ -38,7 +47,21 @@ export async function getCategoryByName(
         ${categoryName}
       )
   `;
-  return categories[0] || undefined;
+
+  if (categories.length === 0) {
+    return undefined;
+  }
+
+  const category = categories[0];
+  if (!category) {
+    return undefined;
+  }
+
+  return {
+    id: category.id,
+    categoryName: category.categoryName,
+    description: category.description ?? undefined,
+  };
 }
 
 export async function createCategory(
@@ -47,7 +70,9 @@ export async function createCategory(
 ): Promise<Category> {
   const titleCaseCategoryName = toTitleCase(categoryName);
 
-  const categories = await sql<Category[]>`
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     INSERT INTO
       categories (category_name, description)
     VALUES
@@ -60,7 +85,17 @@ export async function createCategory(
       category_name AS "categoryName",
       description
   `;
-  return categories[0]!;
+
+  const category = categories[0];
+  if (!category) {
+    throw new Error('Failed to create category');
+  }
+
+  return {
+    id: category.id,
+    categoryName: category.categoryName,
+    description: category.description ?? undefined,
+  };
 }
 
 export async function addUserCategory(
@@ -78,8 +113,10 @@ export async function addUserCategory(
   `;
 }
 
-export function getUserCategories(userId: number): Promise<Category[]> {
-  return sql<Category[]>`
+export async function getUserCategories(userId: number): Promise<Category[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     SELECT
       c.id,
       c.category_name AS "categoryName",
@@ -90,6 +127,11 @@ export function getUserCategories(userId: number): Promise<Category[]> {
     WHERE
       uc.user_id = ${userId}
   `;
+
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as Category[];
 }
 
 export async function removeUserCategory(
@@ -131,7 +173,7 @@ export async function removePostCategory(
 export async function getCategoryIdsByNames(
   categoryNames: string[],
 ): Promise<number[]> {
-  const categories = await sql<Category[]>`
+  const categories = await sql<{ id: number; categoryName: string }[]>`
     SELECT
       id,
       category_name

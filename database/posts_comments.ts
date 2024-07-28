@@ -40,11 +40,27 @@ export async function createPostComment(
   if (comment === undefined) {
     throw new Error('Comment not found');
   }
-  return comment as Comment;
+
+  // Convert null to a default date
+  const convertedComment: Comment = {
+    ...comment,
+    createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+  };
+
+  return convertedComment;
 }
 
 export function getCommentsByPostId(postId: number): Promise<Comment[]> {
-  return sql<Comment[]>`
+  return sql<
+    {
+      id: number;
+      postId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+      username: string;
+    }[]
+  >`
     SELECT
       posts_comments.id,
       posts_comments.post_id AS "postId",
@@ -59,5 +75,10 @@ export function getCommentsByPostId(postId: number): Promise<Comment[]> {
       posts_comments.post_id = ${postId}
     ORDER BY
       posts_comments.created_at DESC
-  `;
+  `.then((comments) =>
+    comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })),
+  ) as Promise<Comment[]>;
 }

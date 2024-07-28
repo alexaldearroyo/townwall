@@ -3,12 +3,6 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-interface MapProps {
-  latitude: number;
-  longitude: number;
-  height: string;
-}
-
 const MapComponent = dynamic(
   () => import('../../../../components/MapComponent'),
   {

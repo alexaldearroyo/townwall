@@ -35,7 +35,7 @@ const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
                 <div>
                   <p className="text-lg font-medium text-gray-900 dark:text-white">
                     <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-400 text-gray-700 mr-2">
+                      <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-300 text-gray-700 mr-2">
                         {user.username}
                       </span>
                     </a>

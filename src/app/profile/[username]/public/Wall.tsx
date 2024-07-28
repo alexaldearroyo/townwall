@@ -1,13 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { getCityAndCountry } from '../../../../../util/geocode';
 import { CldImage } from 'next-cloudinary';
-
-const Map = dynamic(() => import('../../../../components/MapComponent'), {
-  ssr: false,
-});
 
 type LocationType = {
   city: string;

@@ -38,7 +38,10 @@ export default function UserComments({
       }
     };
 
-    fetchComments();
+    fetchComments().catch((err) => {
+      console.error('Error fetching comments:', err);
+      setFetchError('Failed to fetch comments');
+    });
   }, [username]);
 
   const handleCommentSubmit = async (
@@ -79,7 +82,7 @@ export default function UserComments({
         ) : (
           comments.map((comment) => (
             <div
-              key={comment.id}
+              key={`comment-${comment.id}`}
               className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
             >
               <p className="text-gray-700 dark:text-gray-300">
@@ -109,10 +112,7 @@ export default function UserComments({
           />
         </div>
         <div className="flex justify-center">
-          <button
-            type="submit"
-            className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-          >
+          <button className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
             Submit
           </button>
         </div>

@@ -32,7 +32,7 @@ const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
                 <div className="flex items-center space-x-2">
                   <div className="text-xl font-bold text-center text-gray-800 dark:text-white">
                     <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-100 hover:bg-gray-400 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
+                      <span className="inline-block bg-gray-200 hover:bg-gray-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
                         {user.username}
                       </span>{' '}
                     </a>

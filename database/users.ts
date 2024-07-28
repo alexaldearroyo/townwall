@@ -503,7 +503,25 @@ export async function getUserByUsernameOrEmail(
 }
 
 export async function getUsersByCategory(categoryId: number): Promise<User[]> {
-  const users = await sql<User[]>`
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
     SELECT
       u.id,
       u.username,
@@ -527,5 +545,9 @@ export async function getUsersByCategory(categoryId: number): Promise<User[]> {
       uc.category_id = ${categoryId}
   `;
 
-  return users;
+  return users.map((user) => ({
+    ...user,
+    passwordHash: null,
+    location: user.location ? parseLocation(user.location as string) : null,
+  })) as unknown as User[];
 }

@@ -29,25 +29,29 @@ type LocationType = {
   country: string;
 };
 
+type UserType = {
+  id: number;
+  username: string;
+  email: string;
+  fullName?: string;
+  description?: string;
+  interests?: string;
+  profileLinks?: string;
+  userImage?: string;
+  location?: { x: number; y: number } | null;
+  birthdate?: string;
+  profession?: string;
+};
+
+type PrivatePageClientProps = {
+  user: UserType;
+  loggedInUserId: number | null;
+};
+
 export default function PrivatePageClient({
   user,
   loggedInUserId,
-}: {
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  loggedInUserId: number | null;
-}) {
+}: PrivatePageClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const [location, setLocation] = useState<LocationType | null>(null);
@@ -74,7 +78,7 @@ export default function PrivatePageClient({
     if (user.location) {
       getCityAndCountry(user.location.y, user.location.x)
         .then((loc) => setLocation(loc))
-        .catch((err) => setError('Failed to fetch location data'));
+        .catch(() => setError('Failed to fetch location data'));
     }
   }, [user.location]);
 

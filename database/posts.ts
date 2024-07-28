@@ -1,9 +1,5 @@
 import { sql } from './connect';
-import {
-  addPostCategories,
-  getPostCategories,
-  getCategoryIdsByNames,
-} from './categories';
+import { addPostCategories, getPostCategories } from './categories';
 
 export type Post = {
   id: number;

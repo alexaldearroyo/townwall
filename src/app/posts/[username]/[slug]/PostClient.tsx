@@ -25,7 +25,7 @@ export default function PostClient({ post }: { post: any }) {
     fetch(`/api/comments?postId=${post.id}`)
       .then((response) => response.json())
       .then((data) => setComments(data))
-      .catch((err) => setError('Failed to fetch comments'));
+      .catch(() => setError('Failed to fetch comments'));
   }, [post.id]);
 
   const handleCommentSubmit = async (event: React.FormEvent) => {
@@ -45,7 +45,7 @@ export default function PostClient({ post }: { post: any }) {
       const comment = await response.json();
       setComments([comment, ...comments]);
       setNewComment('');
-    } catch (err) {
+    } catch {
       setError('Failed to add comment');
     }
   };
@@ -91,7 +91,7 @@ export default function PostClient({ post }: { post: any }) {
         <div className="space-y-4">
           {comments.map((comment) => (
             <div
-              key={comment.id}
+              key={`comment-${comment.id}`}
               className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
             >
               <p className="text-gray-700 dark:text-gray-300">
@@ -118,10 +118,7 @@ export default function PostClient({ post }: { post: any }) {
             className="w-full p-2 border border-gray-300 rounded-md"
           />
           <div className="flex justify-center">
-            <button
-              type="submit"
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
               Submit
             </button>
           </div>

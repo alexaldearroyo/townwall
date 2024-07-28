@@ -36,10 +36,12 @@ export async function removePostCategory(
 export async function getPostCategories(
   postId: number,
 ): Promise<PostCategory[]> {
-  const categories = await sql<PostCategory[]>`
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
     SELECT
       c.id AS id,
-      c.category_name AS categoryname,
+      c.category_name AS "categoryName",
       c.description AS description
     FROM
       categories c
@@ -47,5 +49,8 @@ export async function getPostCategories(
     WHERE
       pc.post_id = ${postId}
   `;
-  return categories;
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as PostCategory[];
 }

@@ -8,10 +8,17 @@ export type Comment = {
   createdAt: Date;
 };
 
-// Función para obtener comentarios por postId
 export async function getCommentsByPostId(postId: number): Promise<Comment[]> {
   try {
-    return await sql<Comment[]>`
+    const comments = await sql<
+      {
+        id: number;
+        postId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+      }[]
+    >`
       SELECT
         id,
         post_id AS "postId",
@@ -25,20 +32,32 @@ export async function getCommentsByPostId(postId: number): Promise<Comment[]> {
       ORDER BY
         created_at DESC
     `;
+
+    return comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })) as Comment[];
   } catch (error) {
     console.error('Error fetching comments:', error);
     throw new Error(`Failed to fetch comments: ${(error as Error).message}`);
   }
 }
 
-// Función para crear un comentario
 export async function createPostComment(
   postId: number,
   userId: number,
   content: string,
 ): Promise<Comment> {
   try {
-    const [comment] = await sql<Comment[]>`
+    const [comment] = await sql<
+      {
+        id: number;
+        postId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+      }[]
+    >`
       INSERT INTO
         comments (post_id, user_id, content)
       VALUES
@@ -59,7 +78,13 @@ export async function createPostComment(
       throw new Error('Failed to create comment');
     }
 
-    return comment;
+    // Convert null to a default date
+    const convertedComment: Comment = {
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    };
+
+    return convertedComment;
   } catch (error) {
     console.error('Error creating comment:', error);
     throw new Error(`Failed to create comment: ${(error as Error).message}`);

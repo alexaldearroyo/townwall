@@ -28,7 +28,17 @@ export async function createProfileComment(
       throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
     }
 
-    const [comment] = await sql<ProfileComment[]>`
+    const [comment] = await sql<
+      {
+        id: number;
+        profileId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+        username: string | null;
+        userImage: string | null;
+      }[]
+    >`
       INSERT INTO
         profiles_comments (profile_id, user_id, content)
       VALUES
@@ -65,7 +75,14 @@ export async function createProfileComment(
       throw new Error('Failed to create profile comment');
     }
 
-    return comment;
+    // Convert null values to acceptable types
+    const convertedComment: ProfileComment = {
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+      username: comment.username ?? 'Unknown', // Assuming 'Unknown' if username is null
+    };
+
+    return convertedComment;
   } catch (error) {
     if (
       error instanceof Error &&
@@ -81,7 +98,17 @@ export async function createProfileComment(
 export function getCommentsByProfileUserId(
   profileId: number,
 ): Promise<ProfileComment[]> {
-  return sql<ProfileComment[]>`
+  return sql<
+    {
+      id: number;
+      profileId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+      username: string;
+      userImage: string;
+    }[]
+  >`
     SELECT
       profiles_comments.id,
       profiles_comments.profile_id AS "profileId",
@@ -97,5 +124,10 @@ export function getCommentsByProfileUserId(
       profiles_comments.profile_id = ${profileId}
     ORDER BY
       profiles_comments.created_at DESC
-  `;
+  `.then((comments) =>
+    comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })),
+  ) as Promise<ProfileComment[]>;
 }
