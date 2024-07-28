@@ -16,7 +16,12 @@ type CategoryType = {
   categoryName: string;
 };
 
-export default function PostClient({ post }: { post: any }) {
+type PostClientProps = {
+  post: any;
+  currentUser: any;
+};
+
+export default function PostClient({ post }: PostClientProps) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +55,36 @@ export default function PostClient({ post }: { post: any }) {
     }
   };
 
+  const handleEditPost = () => {
+    console.log('Edit post clicked');
+  };
+
+  const handleDeletePost = () => {
+    console.log('Delete post clicked');
+  };
+
   return (
     <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-center md:items-start space-y-8 md:space-y-0 md:space-x-8">
       <div className="w-full max-w-3xl mx-auto p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
-          {post.title}
-        </h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+            {post.title}
+          </h1>
+          {/* <div className="space-x-2">
+            <button
+              onClick={handleEditPost}
+              className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleDeletePost}
+              className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Delete
+            </button>
+          </div> */}
+        </div>
         <p className="text-center text-gray-600 dark:text-gray-400">
           By{' '}
           <a

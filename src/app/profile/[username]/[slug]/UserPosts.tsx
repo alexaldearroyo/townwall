@@ -46,11 +46,11 @@ export default function UserPosts({
                   {post.title}
                 </Link>
                 {post.categories.length > 0 && (
-                  <div className="mt-2">
+                  <div className="flex flex-wrap items-center space-x-2 mt-2">
                     {post.categories.map((category) => (
                       <span
                         key={`category-${category.id}`}
-                        className="ml-1 inline-block bg-orange-100 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                        className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
                       >
                         {category.categoryName}
                       </span>

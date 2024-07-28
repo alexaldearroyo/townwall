@@ -1,209 +1,1412 @@
-// src/app/profile/[username]/followers/FollowersList.tsx:
+// src/app/(auth)/api/followers/route.ts:
 
-// src/app/profile/[username]/followers/FollowersList.tsx
+import { NextRequest, NextResponse } from 'next/server';
+import { getFollowersByUsername } from '../../../../../database/follows';
 
-'use client';
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const username = searchParams.get('username');
 
-import React from 'react';
+  if (!username) {
+    return NextResponse.json(
+      { error: 'Username is required' },
+      { status: 400 },
+    );
+  }
 
-type UserType = {
-  email: string;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-type FollowersListProps = {
-  followers: UserType[];
-  error: string | null;
-};
-
-const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Users Following You
-        </h1>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul className="flex flex-wrap space-x-2">
-          {followers.length > 0 ? (
-            followers.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex items-center space-x-2 mb-2"
-              >
-                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
-                <div>
-                  <p className="text-lg font-medium text-gray-900 dark:text-white">
-                    <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-300 text-gray-700 mr-2">
-                        {user.username}
-                      </span>
-                    </a>
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-300">
-                    {user.email}
-                  </p>
-                </div>
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              No one is following you.
-            </p>
-          )}
-        </ul>
-      </div>
-    </div>
-  );
-};
-
-export default FollowersList;
-
-----------------------------------------
-
-// src/app/profile/[username]/followers/page.tsx:
-
-// src/app/profile/[username]/followers/page.tsx
-
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import FollowersList from './FollowersList';
-
-type UserType = {
-  email: string;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-export default function FollowersPage() {
-  const [followers, setFollowers] = useState<UserType[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchFollowers = async () => {
-      try {
-        const response = await fetch('/api/followers');
-        if (!response.ok) {
-          throw new Error('Failed to fetch followers');
-        }
-        const data = await response.json();
-        setFollowers(data);
-      } catch (error: any) {
-        setError(error.message);
-      }
-    };
-
-    fetchFollowers();
-  }, []);
-
-  return <FollowersList followers={followers} error={error} />;
+  try {
+    const followers = await getFollowersByUsername(username);
+    return NextResponse.json(followers);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------
 
-// src/app/profile/[username]/following/FollowingList.tsx:
+// src/app/(auth)/api/posts/route.ts:
 
-'use client';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
+import {
+  addPostCategories,
+  findOrCreateCategory,
+  getPostCategories,
+} from '../../../../../database/categories';
 
-import React, { ReactNode } from 'react';
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
 
-type UserType = {
-  email: ReactNode;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
+    }
 
-type FollowingListProps = {
-  following: UserType[];
-  error: string | null;
-};
+    const { title, content, slug, icon, categoryNames } = await request.json();
 
-const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20 ">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Users You Follow
-        </h1>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul className="flex flex-wrap space-x-2">
-          {following.length > 0 ? (
-            following.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex items-center space-x-2 mb-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="text-xl font-bold text-center text-gray-800 dark:text-white">
-                    <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-200 hover:bg-gray-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-                        {user.username}
-                      </span>{' '}
-                    </a>
-                  </div>
-                </div>
-                {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
-                {/* <div className="text-sm text-gray-500 dark:text-gray-300">
-                  {user.location ? user.location : 'Location not available'}
-                </div> */}
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              You are not following anyone.
-            </p>
-          )}
-        </ul>
-      </div>
-    </div>
-  );
-};
+    if (!title || !content || !slug) {
+      return NextResponse.json(
+        { error: 'Title, content, and slug are required' },
+        { status: 400 },
+      );
+    }
 
-export default FollowingList;
+    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
+
+    const post = await createPost(session.userId, title, content, slug, icon);
+
+    const categoryIds = await Promise.all(
+      categoriesArray.map(async (categoryName) => {
+        const category = await findOrCreateCategory(categoryName);
+        if (category) {
+          return category.id;
+        }
+        return null;
+      }),
+    );
+
+    await addPostCategories(
+      post.id,
+      categoryIds.filter((id): id is number => id !== null),
+    );
+
+    return NextResponse.json(
+      { ...post, userId: session.userId, categoryIds },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error('Error creating post:', error);
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(parseInt(userId, 10));
+
+    const postsWithCategories = await Promise.all(
+      posts.map(async (post) => {
+        const categories = await getPostCategories(post.id);
+        return { ...post, categories };
+      }),
+    );
+
+    return NextResponse.json(postsWithCategories);
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
 
 ----------------------------------------
 
-// src/app/profile/[username]/following/page.tsx:
+// src/app/(auth)/api/delete/route.ts:
+
+// src/app/(auth)/api/delete/route.ts
+
+import { NextResponse } from 'next/server';
+import { getUserById, deleteUserById } from '../../../../../database/users';
+import {
+  getSessionByToken,
+  deleteSessionByToken,
+} from '../../../../../database/sessions';
+
+export async function POST(request: Request) {
+  const cookieHeader = request.headers.get('cookie');
+  const cookies = new Map(
+    cookieHeader?.split(';').map((cookie) => {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      return [name, valueParts.join('=')];
+    }),
+  );
+
+  const sessionToken = cookies.get('session');
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+
+  if (!session) {
+    return NextResponse.json(
+      { errors: [{ message: 'Invalid session token' }] },
+      { status: 401 },
+    );
+  }
+
+  const user = await getUserById(session.userId);
+
+  await deleteUserById(user.id);
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'User deleted successfully' });
+  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/cloudinary/signature.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
+
+if (
+  !process.env.CLOUDINARY_CLOUD_NAME ||
+  !process.env.CLOUDINARY_API_KEY ||
+  !process.env.CLOUDINARY_API_SECRET
+) {
+  console.error('Missing Cloudinary configuration in environment variables');
+}
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET || '',
+});
+
+export function POST() {
+  try {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const signature = cloudinary.utils.api_sign_request(
+      { timestamp },
+      process.env.CLOUDINARY_API_SECRET || '',
+    );
+
+    return NextResponse.json({ timestamp, signature });
+  } catch (error) {
+    console.error('Error generating signature:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate signature' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/logout/route.ts:
+
+// src/app/(auth)/api/logout/route.ts
+import { deleteSessionByToken } from '../../../../../database/sessions';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { errors: [{ message: 'No session token found' }] },
+      { status: 400 },
+    );
+  }
+
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'Logged out successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/search/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getCategoryByName } from '../../../../../database/categories';
+import { getPostsByCategory } from '../../../../../database/posts';
+import { getUsersByCategory } from '../../../../../database/users';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const query = url.searchParams.get('query');
+
+  if (!query) {
+    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
+  }
+
+  try {
+    const category = await getCategoryByName(query);
+    if (!category) {
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 404 },
+      );
+    }
+
+    const posts = await getPostsByCategory(category.id);
+    const users = await getUsersByCategory(category.id);
+
+    return NextResponse.json({ posts, users });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/register/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  createUser,
+  getUserByUsername,
+  getUserByEmail,
+} from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+  email: z.string().email(),
+  latitude: z.number(),
+  longitude: z.number(),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const { username, password, email, latitude, longitude } = result.data;
+
+    const existingUser = await getUserByUsername(username);
+    const existingEmailUser = await getUserByEmail(email);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Email already in use' }] },
+        { status: 409 },
+      );
+    }
+
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+
+    const user = await createUser(username, password, email, profileId, slug, {
+      x: longitude,
+      y: latitude,
+    });
+
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/profile/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { z } from 'zod';
+import { NextRequest } from 'next/server';
+
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  description: z.string().optional(),
+  interests: z.string().optional(),
+  profileLinks: z.string().optional(),
+  userImage: z.string().optional(),
+  // location: z.string().optional(),
+  birthdate: z.string().optional(),
+  profession: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const result = profileSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const interestsArray = result.data.interests
+      ? JSON.parse(result.data.interests)
+      : [];
+    const updatedUser = await updateUserProfile(session.userId, {
+      ...result.data,
+      interests: interestsArray,
+    } as Partial<UserProfile>);
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+
+    console.log(user);
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/following/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getFollowingUsersByUsername } from '../../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const username = searchParams.get('username');
+
+  if (!username) {
+    return NextResponse.json(
+      { error: 'Username is required' },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const followingUsers = await getFollowingUsersByUsername(username);
+    return NextResponse.json(followingUsers);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/follows/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { followUser, unfollowUser } from '../../../../../database/follows';
+import { sql } from '../../../../../database/connect';
+
+export async function POST(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await followUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Followed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function DELETE(request: NextRequest) {
+  const { followerId, followedId } = await request.json();
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session || session.userId !== followerId) {
+    return NextResponse.json(
+      { error: 'Invalid session or follower ID' },
+      { status: 401 },
+    );
+  }
+
+  await unfollowUser(followerId, followedId);
+  return NextResponse.json(
+    { message: 'Unfollowed successfully' },
+    { status: 200 },
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const followerId = parseInt(url.searchParams.get('followerId') || '0', 10);
+  const followedId = parseInt(url.searchParams.get('followedId') || '0', 10);
+
+  if (!followerId || !followedId) {
+    return NextResponse.json(
+      { error: 'Follower ID and Followed ID are required' },
+      { status: 400 },
+    );
+  }
+
+  const [result] = await sql<{ '?column?': number }[]>`
+    SELECT
+      1
+    FROM
+      follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+    LIMIT
+      1
+  `;
+
+  const isFollowing = result !== undefined;
+  return NextResponse.json({ isFollowing }, { status: 200 });
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/interests/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  findOrCreateCategory,
+  addUserCategory,
+  getUserCategories,
+  removeUserCategory,
+} from '../../../../../database/categories';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { NextRequest } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { categoryName } = body;
+
+    const sessionToken = request.cookies.get('session');
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = await getSessionByToken(sessionToken.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.userId;
+    const category = await findOrCreateCategory(categoryName);
+
+    if (category) {
+      await addUserCategory(userId, category.id);
+    }
+
+    const userCategories = await getUserCategories(userId);
+    return NextResponse.json({ categories: userCategories });
+  } catch {
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { categoryName, userId } = body;
+
+    const sessionToken = request.cookies.get('session');
+    if (!sessionToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = await getSessionByToken(sessionToken.value);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const category = await findOrCreateCategory(categoryName);
+    if (category) {
+      await removeUserCategory(userId, category.id.toString());
+    }
+
+    const userCategories = await getUserCategories(userId);
+    return NextResponse.json({ categories: userCategories });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/categories/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  createCategory,
+  getCategories,
+  removePostCategory,
+} from '../../../../../database/categories';
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, description } = await request.json();
+    const category = await createCategory(categoryName, description);
+    return NextResponse.json({ category });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, postId } = await request.json();
+    await removePostCategory(postId, categoryName);
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/login/route.ts:
+
+import { NextResponse } from 'next/server';
+import { getUserByUsernameOrEmail } from '../../../../../database/users'; // Cambiado
+import { createSession } from '../../../../../database/sessions';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
+
+const loginSchema = z.object({
+  identifier: z.string().min(3),
+  password: z.string().min(3),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<LoginResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    console.log('Received login request:', body);
+
+    const result = loginSchema.safeParse(body);
+
+    if (!result.success) {
+      console.log('Validation failed:', result.error.issues);
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsernameOrEmail(result.data.identifier); // Cambiado
+
+    if (!user) {
+      console.log('User not found:', result.data.identifier);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    // Add a log to verify the result of bcrypt.compare
+    const passwordMatch = await bcrypt.compare(
+      result.data.password,
+      user.passwordHash,
+    );
+    console.log('Password match result:', passwordMatch);
+
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', result.data.identifier);
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid username or password' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await createSession(user.id);
+
+    console.log('Session created:', session);
+
+    const response = NextResponse.json(
+      { user: { ...user, slug: user.slug } },
+      { status: 200 },
+    );
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/LoginForm.tsx:
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import FollowingList from './FollowingList';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-type UserType = {
-  email: React.ReactNode;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-export default function FollowingPage() {
-  const [following, setFollowing] = useState<UserType[]>([]);
+export default function LoginForm() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    console.log('Attempting login with:', { identifier, password });
+
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      console.log('Login successful:', data);
+      router.push(`/profile/${data.user.username}/private`); // Redirect to profile page using username
+    } else {
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 ">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+          Sign In
+        </h1>
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500 text-center">{error}</p>}
+          <div>
+            <label
+              htmlFor="identifier"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username or Email
+            </label>
+            <input
+              id="identifier"
+              name="identifier"
+              placeholder="Enter username or email"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div className="flex justify-center">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/login/page.tsx:
+
+'use client';
+
+import LoginForm from './LoginForm';
+
+export default function LoginPage() {
+  return <LoginForm />;
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/RegisterForm.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchFollowing = async () => {
-      try {
-        const response = await fetch('/api/following');
-        if (!response.ok) {
-          throw new Error('Failed to fetch following users');
-        }
-        const data = await response.json();
-        setFollowing(data);
-      } catch (error: any) {
-        setError(error.message);
-      }
-    };
-
-    fetchFollowing();
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
   }, []);
 
-  return <FollowingList following={following} error={error} />;
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
+    }
+
+    const slug = generateSlug(username);
+
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        password,
+        email,
+        latitude,
+        longitude,
+        slug,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(
+        data ? data.errors[0].message : 'Username or password already taken',
+      );
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+          Sign Up
+        </h1>
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && (
+            <p
+              className={
+                error === 'User registered successfully'
+                  ? 'text-emerald-600 text-center'
+                  : 'text-red-500 text-center'
+              }
+            >
+              {error}
+            </p>
+          )}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Enter username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/page.tsx:
+
+// src/app/(auth)/register/page.tsx
+
+'use client';
+
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return <RegisterForm />;
+}
+
+----------------------------------------
+
+// src/app/api/comments/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../database/sessions';
+import {
+  createPostComment,
+  getCommentsByPostId,
+} from '../../../../database/posts_comments'; // Cambiado
+
+export async function POST(request: NextRequest) {
+  const sessionToken = request.cookies.get('session')?.value;
+
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
+  }
+
+  const session = await getSessionByToken(sessionToken);
+  if (!session) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
+
+  const { postId, content } = await request.json();
+
+  if (!postId || !content) {
+    return NextResponse.json(
+      { error: 'Post ID and content are required' },
+      { status: 400 },
+    );
+  }
+
+  const comment = await createPostComment(postId, session.userId, content); // Cambiado
+  return NextResponse.json(comment, { status: 201 });
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const postId = url.searchParams.get('postId');
+
+  if (!postId) {
+    return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
+  }
+
+  const comments = await getCommentsByPostId(parseInt(postId, 10)); // Cambiado
+  return NextResponse.json(comments);
+}
+
+----------------------------------------
+
+// src/app/api/friends/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  getFollowersWithLocation,
+  getFollowingWithLocation,
+} from '../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const followers = await getFollowersWithLocation(Number(userId));
+    const following = await getFollowingWithLocation(Number(userId));
+    const allFriends = [...followers, ...following].map((friend) => ({
+      ...friend,
+      location: friend.location as string,
+    }));
+    return NextResponse.json(allFriends);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to fetch friends' },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/posts/user/[id]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getPostsByUserId } from '../../../../../../database/posts';
+import { getPostCategories } from '../../../../../../database/categories';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const userId = parseInt(params.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
+  try {
+    const posts = await getPostsByUserId(userId);
+
+    const postsWithCategories = await Promise.all(
+      posts.map(async (post) => {
+        const categories = await getPostCategories(post.id);
+        return { ...post, categories };
+      }),
+    );
+
+    return NextResponse.json(postsWithCategories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/profile/[username]/comments/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../../database/sessions';
+import {
+  createProfileComment,
+  getCommentsByProfileUserId,
+} from '../../../../../../database/profiles_comments';
+import { getUserByUsername } from '../../../../../../database/users';
+
+export async function POST(request: NextRequest) {
+  try {
+    const sessionToken = request.cookies.get('session')?.value;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    }
+
+    const { content } = await request.json();
+    const username = request.nextUrl.pathname.split('/')[3];
+
+    if (!username || !content) {
+      return NextResponse.json(
+        { error: 'Username and content are required' },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
+    const comment = await createProfileComment(
+      user.id,
+      session.userId,
+      content,
+    );
+
+    return NextResponse.json(comment, { status: 201 });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    return NextResponse.json(
+      { error: `Failed to add comment: ${(error as Error).message}` },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const username = request.nextUrl.pathname.split('/')[3];
+
+    if (!username) {
+      return NextResponse.json(
+        { error: 'Username is required' },
+        { status: 400 },
+      );
+    }
+
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json(
+        { error: `User with username ${username} not found` },
+        { status: 404 },
+      );
+    }
+
+    const comments = await getCommentsByProfileUserId(user.id);
+    return NextResponse.json(comments);
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return NextResponse.json(
+      { error: `Failed to fetch comments: ${(error as any).message}` },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/api/search/nearby/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '../../../../../database/connect';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const latitude = parseFloat(url.searchParams.get('latitude') || '0');
+  const longitude = parseFloat(url.searchParams.get('longitude') || '0');
+  const radius = parseInt(url.searchParams.get('radius') || '10'); // Radius in kilometers
+
+  if (!latitude || !longitude) {
+    return NextResponse.json(
+      { error: 'Latitude and Longitude are required' },
+      { status: 400 },
+    );
+  }
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+      location: unknown | null;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      email,
+      user_image AS "userImage",
+      st_astext (location) AS location
+    FROM
+      users
+    WHERE
+      st_dwithin (
+        location,
+        st_setsrid (
+          st_makepoint (
+            ${longitude},
+            ${latitude}
+          ),
+          4326
+        ),
+        ${radius} * 1000
+      )
+  `;
+
+  return NextResponse.json(users);
+}
+
+----------------------------------------
+
+// src/app/api/upload/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+  api_secret: process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET,
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const { image } = await request.json();
+
+    if (!image) {
+      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
+    }
+
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder: 'profile_pictures',
+    });
+
+    return NextResponse.json({ url: uploadResponse.secure_url });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Image upload failed' }, { status: 500 });
+  }
+}
+
+----------------------------------------
+
+// src/app/api/users/username/[username]/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserByUsername } from '../../../../../../database/users';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { username: string } },
+) {
+  const { username } = params;
+
+  try {
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    return NextResponse.json(user);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 ----------------------------------------
