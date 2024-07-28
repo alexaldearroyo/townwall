@@ -28,9 +28,12 @@ export default function Posts({
   username: string;
 }) {
   return (
-    <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-        {username}'s Posts
+    <div className="w-full space-y-4">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
+        Posts of{' '}
+        <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
+          {username}
+        </span>
       </h2>
       <ul>
         {posts.length > 0 ? (
@@ -39,7 +42,7 @@ export default function Posts({
               <div className="flex items-center justify-between mb-2">
                 <Link
                   href={`/posts/${username}/${post.slug}`}
-                  className="text-xl font-semibold text-blue-700 dark:text-blue-400 hover:text-indigo-800"
+                  className="text-lg font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
                 >
                   {post.title}
                 </Link>
@@ -48,7 +51,7 @@ export default function Posts({
                     {post.categories.map((category) => (
                       <span
                         key={`category-${category.id}`}
-                        className="ml-1 inline-block bg-amber-300 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
+                        className="ml-1 inline-block bg-orange-100 rounded-full px-2 py-1 text-sm font-semibold text-gray-700"
                       >
                         {category.categoryName}
                       </span>
@@ -64,6 +67,9 @@ export default function Posts({
               <p className="text-gray-700 dark:text-gray-300">
                 {post.content.slice(0, 100)}...
               </p>
+              {posts.indexOf(post) < posts.length - 1 && (
+                <hr className="border-t mt-4 border-gray-300 dark:border-gray-700" />
+              )}
             </li>
           ))
         ) : (

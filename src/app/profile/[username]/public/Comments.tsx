@@ -64,8 +64,8 @@ export default function Comments({ username }: { username: string }) {
   };
 
   return (
-    <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mt-8">
+    <div className="w-full space-y-4">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         Comments
       </h2>
       {!!error && <p className="text-red-500 text-center">{error}</p>}
@@ -87,7 +87,7 @@ export default function Comments({ username }: { username: string }) {
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-blue-700 dark:text-sky-600 hover:text-indigo-800"
+                  className="text-sky-700 dark:text-sky-600 hover:text-sky-800"
                 >
                   {comment.username}
                 </a>

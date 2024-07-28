@@ -89,7 +89,7 @@ export default function UserComments({
                 {new Date(comment.createdAt).toLocaleString()} by{' '}
                 <a
                   href={`/profile/${comment.username}/public`}
-                  className="text-sky-800 font-bold dark:text-sky-600 hover:text-indigo-800"
+                  className="text-sky-700 font-bold dark:text-sky-600 hover:text-sky-800"
                 >
                   {comment.username}
                 </a>

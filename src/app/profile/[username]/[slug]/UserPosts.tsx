@@ -31,7 +31,7 @@ export default function UserPosts({
 }) {
   return (
     <div className="w-full space-y-4">
-      <h2 className="text-lg font-bold text-center text-gray-800 dark:text-white">
+      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         My Posts
       </h2>
       <ul>
@@ -41,7 +41,7 @@ export default function UserPosts({
               <div className="flex items-center justify-between mb-2">
                 <Link
                   href={`/posts/${user.username}/${post.slug}`}
-                  className="text-xl font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
+                  className="text-lg font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
                 >
                   {post.title}
                 </Link>

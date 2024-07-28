@@ -16,30 +16,29 @@ type FollowingListProps = {
 
 const FollowingList: React.FC<FollowingListProps> = ({ following, error }) => {
   return (
-    <div className="flex items-center justify-center mt-20 mb-20 bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center mt-20 mb-20 ">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
           Users You Follow
         </h1>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul>
+        <ul className="flex flex-wrap space-x-2">
           {following.length > 0 ? (
             following.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex items-center space-x-4 mb-4"
-              >
-                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
-                <div>
-                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+<li key={`user-${user.id}`} className="flex items-center space-x-2 mb-2">
+<div className="flex items-center space-x-2">
+                  <div className="text-xl font-bold text-center text-gray-800 dark:text-white">
                     <a href={`/profile/${user.username}/public`}>
-                      {user.username}
+                      <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
+                        {user.username}
+                      </span>{' '}
                     </a>
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-300">
-                    {user.email}
-                  </p>
+                  </div>
                 </div>
+                {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
+                {/* <div className="text-sm text-gray-500 dark:text-gray-300">
+                  {user.location ? user.location : 'Location not available'}
+                </div> */}
               </li>
             ))
           ) : (

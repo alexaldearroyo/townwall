@@ -72,7 +72,7 @@ export default function Wall({
     <div className="w-full space-y-4">
       <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
         Profile of{' '}
-        <span className="bg-text-sky-600 dark:bg-text-sky-600">
+        <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
           {user.username}
         </span>
       </h1>

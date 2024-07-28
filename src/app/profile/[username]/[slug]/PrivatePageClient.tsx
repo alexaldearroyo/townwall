@@ -84,7 +84,7 @@ export default function PrivatePageClient({
     });
 
     if (response.ok) {
-      window.location.href = '/login'; // Redirect to login page after logout
+      window.location.href = '/'; // Redirect to landing page after logout
     } else {
       setError('Failed to log out');
     }
