@@ -30,10 +30,7 @@ export default function Posts({
   return (
     <div className="w-full space-y-4">
       <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        Posts of{' '}
-        <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-          {username}
-        </span>
+        Posts
       </h2>
       <ul>
         {posts.length > 0 ? (
