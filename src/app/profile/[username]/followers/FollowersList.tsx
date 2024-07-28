@@ -27,13 +27,15 @@ const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
         <ul className="flex flex-wrap space-x-2">
           {followers.length > 0 ? (
             followers.map((user) => (
-<li key={`user-${user.id}`} className="flex items-center space-x-2 mb-2">
-
+              <li
+                key={`user-${user.id}`}
+                className="flex items-center space-x-2 mb-2"
+              >
                 <div className="h-15 w-15 rounded-full">{user.userImage}</div>
                 <div>
                   <p className="text-lg font-medium text-gray-900 dark:text-white">
                     <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
+                      <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-400 text-gray-700 mr-2">
                         {user.username}
                       </span>
                     </a>
