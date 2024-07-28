@@ -81,24 +81,24 @@ export default function SearchComponent() {
             <h2 className="text-lg mb-2 font-bold text-center text-gray-900 dark:text-white">
               Users
             </h2>
-            <ul className="space-y-4">
+            <ul className="space-y-6">
               {results.users.map((user) => (
                 <li
                   key={`user-${user.id}`}
-                  className="flex items-center space-x-4"
+                  className="flex flex-wrap items-center space-x-4"
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center space-x-2">
                     <div className="text-sm font-medium text-sky-700 dark:text-sky-600">
                       <a href={`/profile/${user.username}/public`}>
                         {user.username}
                       </a>
                     </div>
                     {!!user.interests && (
-                      <div className="flex space-x-2">
+                      <div className="flex flex-wrap items-center space-x-2 mt-2">
                         {user.interests.split(',').map((interest) => (
                           <span
                             key={`interest-${interest}`}
-                            className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700"
+                            className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
                           >
                             {interest}
                           </span>
@@ -108,8 +108,8 @@ export default function SearchComponent() {
                   </div>
                   {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
                   {/* <div className="text-sm text-gray-500 dark:text-gray-300">
-                      {user.location ? user.location : 'Location not available'}
-                    </div> */}
+        {user.location ? user.location : 'Location not available'}
+      </div> */}
                 </li>
               ))}
             </ul>
