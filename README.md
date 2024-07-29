@@ -43,69 +43,22 @@ Townwall is a social platform designed to help users connect locally through sha
 
 ## Tech Stack
 
-### Frontend
-
-<div>
-  <img src="https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=white" alt="React Badge">
-  <br>
-  <img src="https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white" alt="Next.js Badge">
-  <br>
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript Badge">
-  <br>
-  <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwind-css&logoColor=white" alt="Tailwind CSS Badge">
-</div>
-
-### Backend
-
-<div>
-  <img src="https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white" alt="Node.js Badge">
-  <br>
-  <img src="https://img.shields.io/badge/Express.js-000000?style=flat&logo=express&logoColor=white" alt="Express.js Badge">
-  <br>
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL Badge">
-  <br>
-  <img src="https://img.shields.io/badge/JWT-000000?style=flat&logo=json-web-tokens&logoColor=white" alt="JWT Badge">
-  <br>
-  <img src="https://img.shields.io/badge/bcrypt-000000?style=flat&logo=python&logoColor=white" alt="Bcrypt Badge">
-</div>
-
-### Database
-
-<div>
-  <img src="https://img.shields.io/badge/DrawSQL-000000?style=flat&logo=drawio&logoColor=white" alt="DrawSQL Badge">
-  <br>
-  <img src="https://img.shields.io/badge/PostGIS-003D34?style=flat&logo=postgis&logoColor=white" alt="PostGIS Badge">
-</div>
-
-### Design
-
-<div>
-  <img src="https://img.shields.io/badge/Figma-F24E1E?style=flat&logo=figma&logoColor=white" alt="Figma Badge">
-  <br>
-  Responsive design with light and dark themes
-</div>
-
-### Image Uploads
-
-<div>
-  <img src="https://img.shields.io/badge/Cloudinary-FFFFFF?style=flat&logo=cloudinary&logoColor=white" alt="Cloudinary Badge">
-</div>
-
-### Testing
-
-<div>
-  <img src="https://img.shields.io/badge/Jest-C21325?style=flat&logo=jest&logoColor=white" alt="Jest Badge">
-  <br>
-  <img src="https://img.shields.io/badge/Playwright-000000?style=flat&logo=playwright&logoColor=white" alt="Playwright Badge">
-</div>
-
-### Deployment
-
-<div>
-  <img src="https://img.shields.io/badge/Fly.io-000000?style=flat&logo=fly&logoColor=white" alt="Fly.io Badge">
-  <br>
-  Continuous integration through GitHub Actions
-</div>
+![React Badge](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=white)
+![Next.js Badge](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)
+![TypeScript Badge](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Tailwind CSS Badge](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwind-css&logoColor=white)
+![Node.js Badge](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![Express.js Badge](https://img.shields.io/badge/Express.js-000000?style=flat&logo=express&logoColor=white)
+![PostgreSQL Badge](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![JWT Badge](https://img.shields.io/badge/JWT-000000?style=flat&logo=json-web-tokens&logoColor=white)
+![Bcrypt Badge](https://img.shields.io/badge/bcrypt-000000?style=flat&logo=python&logoColor=white)
+![DrawSQL Badge](https://img.shields.io/badge/DrawSQL-000000?style=flat&logo=drawio&logoColor=white)
+![PostGIS Badge](https://img.shields.io/badge/PostGIS-003D34?style=flat&logo=postgis&logoColor=white)
+![Figma Badge](https://img.shields.io/badge/Figma-F24E1E?style=flat&logo=figma&logoColor=white)
+![Cloudinary Badge](https://img.shields.io/badge/Cloudinary-FFFFFF?style=flat&logo=cloudinary&logoColor=white)
+![Jest Badge](https://img.shields.io/badge/Jest-C21325?style=flat&logo=jest&logoColor=white)
+![Playwright Badge](https://img.shields.io/badge/Playwright-000000?style=flat&logo=playwright&logoColor=white)
+![Fly.io Badge](https://img.shields.io/badge/Fly.io-000000?style=flat&logo=fly&logoColor=white)
 
 ## Live Preview
 
