@@ -236,7 +236,7 @@ export default function EditProfileForm({ user }: { user: any }) {
             </button>
             <CldUploadWidget
               uploadPreset="ml_default"
-              onUpload={handleUpload}
+              onSuccess={handleUpload}
               options={{
                 styles: {
                   palette: {
@@ -327,7 +327,7 @@ export default function EditProfileForm({ user }: { user: any }) {
           </div>
           <div>
             <label
-              htmlFor="interests"
+              htmlFor="newInterest"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Interests
