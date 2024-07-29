@@ -3,7 +3,7 @@
 Townwall is a social platform designed to help users connect locally through shared interests. It enables users to create and share posts, follow other users, and interact through comments, all while discovering people nearby.
 
 ![Screenshot](public/screenshot.png)
-![Screenshot 2](Screenshot2.png)
+![Screenshot 2](public/screenshot2.png)
 
 ## Features
 
