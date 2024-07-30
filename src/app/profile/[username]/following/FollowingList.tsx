@@ -16,12 +16,19 @@ type FollowingListProps = {
   loggedInUsername: string;
 };
 
-const FollowingList: React.FC<FollowingListProps> = ({ following, error, username, loggedInUsername }) => {
+const FollowingList: React.FC<FollowingListProps> = ({
+  following,
+  error,
+  username,
+  loggedInUsername,
+}) => {
   return (
     <div className="flex items-center justify-center mt-20 mb-20 ">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+      <div className="w-full max-w-md p-8 space-y-6">
         <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          {username === loggedInUsername ? 'You are following:' : `${username} is following:`}
+          {username === loggedInUsername
+            ? 'You are following:'
+            : `${username} is following:`}
         </h1>
         {!!error && <p className="text-red-500 text-center">{error}</p>}
         <ul className="flex flex-wrap space-x-2">
@@ -48,7 +55,9 @@ const FollowingList: React.FC<FollowingListProps> = ({ following, error, usernam
             ))
           ) : (
             <p className="text-center text-gray-700 dark:text-gray-300">
-              {username === loggedInUsername ? 'You are not following anyone.' : `${username} is not following anyone.`}
+              {username === loggedInUsername
+                ? 'You are not following anyone.'
+                : `${username} is not following anyone.`}
             </p>
           )}
         </ul>
