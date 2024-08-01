@@ -1,11 +1,1133 @@
-// src/app/profile/[username]/edit/EditProfileForm.tsx:
+// database/categories.ts:
 
-'use client';
+import { sql } from './connect';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { CldUploadWidget } from 'next-cloudinary';
-import { CldImage } from 'next-cloudinary';
+export type Category = {
+  id: number;
+  categoryName: string;
+  description?: string;
+};
+
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, (txt) => {
+    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+  });
+}
+
+export async function getCategories(): Promise<Category[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      id,
+      category_name AS "categoryName",
+      description
+    FROM
+      categories
+  `;
+
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as Category[];
+}
+
+export async function getCategoryByName(
+  categoryName: string,
+): Promise<Category | undefined> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      id,
+      category_name AS "categoryName",
+      description
+    FROM
+      categories
+    WHERE
+      lower(category_name) = lower(
+        ${categoryName}
+      )
+  `;
+
+  if (categories.length === 0) {
+    return undefined;
+  }
+
+  const category = categories[0];
+  if (!category) {
+    return undefined;
+  }
+
+  return {
+    id: category.id,
+    categoryName: category.categoryName,
+    description: category.description ?? undefined,
+  };
+}
+
+export async function createCategory(
+  categoryName: string,
+  description?: string,
+): Promise<Category> {
+  const titleCaseCategoryName = toTitleCase(categoryName);
+
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    INSERT INTO
+      categories (category_name, description)
+    VALUES
+      (
+        ${titleCaseCategoryName},
+        ${description ?? null}
+      )
+    RETURNING
+      id,
+      category_name AS "categoryName",
+      description
+  `;
+
+  const category = categories[0];
+  if (!category) {
+    throw new Error('Failed to create category');
+  }
+
+  return {
+    id: category.id,
+    categoryName: category.categoryName,
+    description: category.description ?? undefined,
+  };
+}
+
+export async function addUserCategory(
+  userId: number,
+  categoryId: number,
+): Promise<void> {
+  await sql`
+    INSERT INTO
+      users_categories (user_id, category_id)
+    VALUES
+      (
+        ${userId},
+        ${categoryId}
+      )
+  `;
+}
+
+export async function getUserCategories(userId: number): Promise<Category[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      c.id,
+      c.category_name AS "categoryName",
+      c.description
+    FROM
+      categories c
+      INNER JOIN users_categories uc ON c.id = uc.category_id
+    WHERE
+      uc.user_id = ${userId}
+  `;
+
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as Category[];
+}
+
+export async function removeUserCategory(
+  userId: number,
+  categoryName: string,
+): Promise<void> {
+  const category = await getCategoryByName(categoryName);
+
+  if (!category) {
+    throw new Error('Category not found');
+  }
+
+  await sql`
+    DELETE FROM users_categories
+    WHERE
+      user_id = ${userId}
+      AND category_id = ${category.id}
+  `;
+}
+
+export async function removePostCategory(
+  postId: number,
+  categoryName: string,
+): Promise<void> {
+  const category = await getCategoryByName(categoryName);
+
+  if (!category) {
+    throw new Error('Category not found');
+  }
+
+  await sql`
+    DELETE FROM posts_categories
+    WHERE
+      post_id = ${postId}
+      AND category_id = ${category.id}
+  `;
+}
+
+export async function getCategoryIdsByNames(
+  categoryNames: string[],
+): Promise<number[]> {
+  const categories = await sql<{ id: number; categoryName: string }[]>`
+    SELECT
+      id,
+      category_name
+    FROM
+      categories
+    WHERE
+      category_name = ANY (
+        ${categoryNames}
+      )
+  `;
+  return categories.map((category) => category.id);
+}
+
+export async function addPostCategories(
+  postId: number,
+  categoryIds: number[],
+): Promise<void> {
+  if (categoryIds.length === 0) {
+    throw new Error('No valid categories found');
+  }
+
+  console.log('Category IDs to insert:', categoryIds);
+
+  // Insert categories to post
+  await sql`
+    INSERT INTO
+      posts_categories (post_id, category_id)
+    SELECT
+      ${postId},
+      unnest(
+        ${categoryIds}::INT[]
+      )
+  `;
+}
+
+export async function getPostCategories(postId: number) {
+  const categories = await sql<{ id: number; categoryName: string }[]>`
+    SELECT
+      c.id,
+      c.category_name AS "categoryName"
+    FROM
+      categories c
+      JOIN posts_categories pc ON c.id = pc.category_id
+    WHERE
+      pc.post_id = ${postId}
+  `;
+  return categories;
+}
+
+export async function findOrCreateCategory(categoryName: string) {
+  const titleCaseCategoryName = categoryName.replace(/\w\S*/g, (txt) => {
+    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+  });
+
+  let [category] = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      *
+    FROM
+      categories
+    WHERE
+      category_name = ${titleCaseCategoryName}
+    LIMIT
+      1
+  `;
+
+  if (!category) {
+    [category] = await sql<
+      { id: number; categoryName: string; description: string | null }[]
+    >`
+      INSERT INTO
+        categories (category_name)
+      VALUES
+        (
+          ${titleCaseCategoryName}
+        )
+      RETURNING
+        *
+    `;
+  }
+
+  return category;
+}
+
+----------------------------------------
+
+// database/comments.ts:
+
+import { sql } from './connect';
+
+export type Comment = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+};
+
+export async function getCommentsByPostId(postId: number): Promise<Comment[]> {
+  try {
+    const comments = await sql<
+      {
+        id: number;
+        postId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+      }[]
+    >`
+      SELECT
+        id,
+        post_id AS "postId",
+        user_id AS "userId",
+        content,
+        created_at AS "createdAt"
+      FROM
+        comments
+      WHERE
+        post_id = ${postId}
+      ORDER BY
+        created_at DESC
+    `;
+
+    return comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })) as Comment[];
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    throw new Error(`Failed to fetch comments: ${(error as Error).message}`);
+  }
+}
+
+export async function createPostComment(
+  postId: number,
+  userId: number,
+  content: string,
+): Promise<Comment> {
+  try {
+    const [comment] = await sql<
+      {
+        id: number;
+        postId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+      }[]
+    >`
+      INSERT INTO
+        comments (post_id, user_id, content)
+      VALUES
+        (
+          ${postId},
+          ${userId},
+          ${content}
+        )
+      RETURNING
+        id,
+        post_id AS "postId",
+        user_id AS "userId",
+        content,
+        created_at AS "createdAt"
+    `;
+
+    if (!comment) {
+      throw new Error('Failed to create comment');
+    }
+
+    // Convert null to a default date
+    const convertedComment: Comment = {
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    };
+
+    return convertedComment;
+  } catch (error) {
+    console.error('Error creating comment:', error);
+    throw new Error(`Failed to create comment: ${(error as Error).message}`);
+  }
+}
+
+----------------------------------------
+
+// database/connect.ts:
+
+import { unstable_noStore as noStore } from 'next/cache';
+import postgres, { Sql } from 'postgres';
+import postgresConfig from '../ley.config.js';
+import { setEnvironmentVariables } from '../util/config.js';
+
+setEnvironmentVariables();
+
+declare module globalThis {
+  let postgresSqlClient: Sql;
+}
+
+function connectOneTimeToDatabase() {
+  if (!('postgresSqlClient' in globalThis)) {
+    globalThis.postgresSqlClient = postgres(postgresConfig);
+  }
+
+  return ((
+    ...sqlParameters: Parameters<typeof globalThis.postgresSqlClient>
+  ) => {
+    noStore();
+    return globalThis.postgresSqlClient(...sqlParameters);
+  }) as typeof globalThis.postgresSqlClient;
+}
+
+export const sql = connectOneTimeToDatabase();
+
+----------------------------------------
+
+// database/follows.ts:
+
+import { sql } from './connect';
+
+export async function followUser(followerId: number, followedId: number) {
+  await sql`
+    INSERT INTO
+      follows (follower_id, followed_id)
+    VALUES
+      (
+        ${followerId},
+        ${followedId}
+      )
+  `;
+}
+
+export async function unfollowUser(followerId: number, followedId: number) {
+  await sql`
+    DELETE FROM follows
+    WHERE
+      follower_id = ${followerId}
+      AND followed_id = ${followedId}
+  `;
+}
+
+export async function getFollowers(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+    }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.follower_id
+    WHERE
+      follows.followed_id = ${userId}
+  `;
+}
+
+export async function getFollowing(userId: number) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+    }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = ${userId}
+  `;
+}
+
+export async function getFollowersByUsername(username: string) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+    }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.follower_id
+    WHERE
+      follows.followed_id = (
+        SELECT
+          id
+        FROM
+          users
+        WHERE
+          username = ${username}
+      )
+  `;
+}
+
+export async function getFollowingUsersByUsername(username: string) {
+  return await sql<
+    {
+      id: number;
+      username: string;
+      email: string;
+      userImage: string;
+    }[]
+  >`
+    SELECT
+      users.id,
+      users.username,
+      users.email,
+      users.user_image AS "userImage"
+    FROM
+      users
+      JOIN follows ON users.id = follows.followed_id
+    WHERE
+      follows.follower_id = (
+        SELECT
+          id
+        FROM
+          users
+        WHERE
+          username = ${username}
+      )
+  `;
+}
+
+----------------------------------------
+
+// database/posts.ts:
+
+import { sql } from './connect';
+import { addPostCategories, getPostCategories } from './categories';
+
+export type Post = {
+  id: number;
+  userId: number;
+  icon: string | null;
+  title: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date | null;
+  slug: string;
+  author?: string;
+  categories?: { id: number; categoryName: string }[];
+};
+
+export async function getPostById(postId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      id = ${postId}
+  `;
+  return posts[0];
+}
+
+export async function getPostsByUserId(userId: number) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+    FROM
+      posts
+    WHERE
+      user_id = ${userId}
+  `;
+  return posts;
+}
+
+export async function getPostByUserAndSlug(username: string, slug: string) {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug
+    FROM
+      posts p
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      u.username = ${username}
+      AND p.slug = ${slug}
+  `;
+  const post = posts[0];
+  if (!post) {
+    return undefined;
+  }
+
+  return {
+    ...post,
+    author: username,
+    categories: await getPostCategories(post.id),
+  };
+}
+
+export async function createPost(
+  userId: number,
+  title: string,
+  content: string,
+  slug: string,
+  icon: string = '',
+  categoryIds: number[] = [],
+): Promise<Post> {
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      posts (
+        user_id,
+        icon,
+        title,
+        content,
+        slug
+      )
+    VALUES
+      (
+        ${userId},
+        ${icon || null},
+        ${title},
+        ${content},
+        ${slug}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      icon,
+      title,
+      content,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      slug
+  `;
+
+  if (!post) {
+    throw new Error('Failed to create post');
+  }
+
+  if (categoryIds.length > 0) {
+    await addPostCategories(post.id, categoryIds);
+  }
+
+  const createdAt = new Date(post.createdAt);
+  const updatedAt = post.updatedAt ? new Date(post.updatedAt) : new Date();
+
+  return { ...post, createdAt, updatedAt };
+}
+
+export async function getPostsByCategory(categoryId: number): Promise<Post[]> {
+  const posts = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+      author: string;
+    }[]
+  >`
+    SELECT
+      p.id,
+      p.user_id AS "userId",
+      p.icon,
+      p.title,
+      p.content,
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt",
+      p.slug,
+      u.username AS "author"
+    FROM
+      posts p
+      JOIN posts_categories pc ON p.id = pc.post_id
+      JOIN users u ON p.user_id = u.id
+    WHERE
+      pc.category_id = ${categoryId}
+  `;
+
+  return posts;
+}
+
+----------------------------------------
+
+// database/posts_categories.ts:
+
+import { sql } from './connect';
+
+export type PostCategory = {
+  id: number;
+  categoryName: string;
+  description?: string;
+};
+
+export async function addPostCategory(
+  postId: number,
+  categoryId: number,
+): Promise<void> {
+  await sql`
+    INSERT INTO
+      posts_categories (post_id, category_id)
+    VALUES
+      (
+        ${postId},
+        ${categoryId}
+      )
+  `;
+}
+
+export async function removePostCategory(
+  postId: number,
+  categoryId: number,
+): Promise<void> {
+  await sql`
+    DELETE FROM posts_categories
+    WHERE
+      post_id = ${postId}
+      AND category_id = ${categoryId}
+  `;
+}
+
+export async function getPostCategories(
+  postId: number,
+): Promise<PostCategory[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      c.id AS id,
+      c.category_name AS "categoryName",
+      c.description AS description
+    FROM
+      categories c
+      INNER JOIN posts_categories pc ON c.id = pc.category_id
+    WHERE
+      pc.post_id = ${postId}
+  `;
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  })) as PostCategory[];
+}
+
+----------------------------------------
+
+// database/posts_comments.ts:
+
+import { sql } from './connect';
+
+export type Comment = {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+};
+
+export async function createPostComment(
+  postId: number,
+  userId: number,
+  content: string,
+): Promise<Comment> {
+  const [comment] = await sql<
+    {
+      id: number;
+      postId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+    }[]
+  >`
+    INSERT INTO
+      posts_comments (post_id, user_id, content)
+    VALUES
+      (
+        ${postId},
+        ${userId},
+        ${content}
+      )
+    RETURNING
+      id,
+      post_id AS "postId",
+      user_id AS "userId",
+      content,
+      created_at AS "createdAt"
+  `;
+  if (comment === undefined) {
+    throw new Error('Comment not found');
+  }
+
+  // Convert null to a default date
+  const convertedComment: Comment = {
+    ...comment,
+    createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+  };
+
+  return convertedComment;
+}
+
+export function getCommentsByPostId(postId: number): Promise<Comment[]> {
+  return sql<
+    {
+      id: number;
+      postId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+      username: string;
+    }[]
+  >`
+    SELECT
+      posts_comments.id,
+      posts_comments.post_id AS "postId",
+      posts_comments.user_id AS "userId",
+      posts_comments.content,
+      posts_comments.created_at AS "createdAt",
+      users.username
+    FROM
+      posts_comments
+      JOIN users ON posts_comments.user_id = users.id
+    WHERE
+      posts_comments.post_id = ${postId}
+    ORDER BY
+      posts_comments.created_at DESC
+  `.then((comments) =>
+    comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })),
+  ) as Promise<Comment[]>;
+}
+
+----------------------------------------
+
+// database/profiles_comments.ts:
+
+import { sql } from './connect';
+
+export type ProfileComment = {
+  id: number;
+  profileId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+  username: string;
+};
+
+export async function createProfileComment(
+  profileId: number,
+  userId: number,
+  content: string,
+): Promise<ProfileComment> {
+  try {
+    const user = await sql<{ id: number }[]>`
+      SELECT
+        id
+      FROM
+        users
+      WHERE
+        id = ${profileId}
+    `;
+
+    if (user.length === 0) {
+      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
+    }
+
+    const [comment] = await sql<
+      {
+        id: number;
+        profileId: number;
+        userId: number;
+        content: string;
+        createdAt: Date | null;
+        username: string | null;
+        userImage: string | null;
+      }[]
+    >`
+      INSERT INTO
+        profiles_comments (profile_id, user_id, content)
+      VALUES
+        (
+          ${profileId},
+          ${userId},
+          ${content}
+        )
+      RETURNING
+        id,
+        profile_id AS "profileId",
+        user_id AS "userId",
+        content,
+        created_at AS "createdAt",
+        (
+          SELECT
+            username
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "username",
+        (
+          SELECT
+            user_image
+          FROM
+            users
+          WHERE
+            id = ${userId}
+        ) AS "userImage"
+    `;
+
+    if (!comment) {
+      throw new Error('Failed to create profile comment');
+    }
+
+    // Convert null values to acceptable types
+    const convertedComment: ProfileComment = {
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+      username: comment.username ?? 'Unknown', // Assuming 'Unknown' if username is null
+    };
+
+    return convertedComment;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('violates foreign key constraint')
+    ) {
+      throw new Error(`El user_id ${profileId} no existe en la tabla users.`);
+    } else {
+      throw error;
+    }
+  }
+}
+
+export function getCommentsByProfileUserId(
+  profileId: number,
+): Promise<ProfileComment[]> {
+  return sql<
+    {
+      id: number;
+      profileId: number;
+      userId: number;
+      content: string;
+      createdAt: Date | null;
+      username: string;
+      userImage: string;
+    }[]
+  >`
+    SELECT
+      profiles_comments.id,
+      profiles_comments.profile_id AS "profileId",
+      profiles_comments.user_id AS "userId",
+      profiles_comments.content,
+      profiles_comments.created_at AS "createdAt",
+      users.username,
+      users.user_image AS "userImage"
+    FROM
+      profiles_comments
+      JOIN users ON profiles_comments.user_id = users.id
+    WHERE
+      profiles_comments.profile_id = ${profileId}
+    ORDER BY
+      profiles_comments.created_at DESC
+  `.then((comments) =>
+    comments.map((comment) => ({
+      ...comment,
+      createdAt: comment.createdAt ?? new Date(), // Assuming new Date() if createdAt is null
+    })),
+  ) as Promise<ProfileComment[]>;
+}
+
+----------------------------------------
+
+// database/sessions.ts:
+
+import { sql } from './connect';
+import crypto from 'node:crypto';
+
+export type Session = {
+  id: number;
+  userId: number;
+  token: string;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+export async function createSession(userId: number): Promise<Session> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    INSERT INTO
+      sessions (user_id, token, expires_at)
+    VALUES
+      (
+        ${userId},
+        ${token},
+        ${expiresAt}
+      )
+    RETURNING
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+  `;
+
+  if (!session) {
+    throw new Error('Session creation failed');
+  }
+
+  return {
+    id: session.id,
+    userId: session.userId,
+    token: session.token,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+  };
+}
+
+export async function getSessionByToken(
+  token: string,
+): Promise<Session | null> {
+  const [session] = await sql<
+    {
+      id: number;
+      userId: number;
+      token: string;
+      createdAt: Date;
+      expiresAt: Date;
+    }[]
+  >`
+    SELECT
+      id,
+      user_id AS "userId",
+      token,
+      created_at AS "createdAt",
+      expires_at AS "expiresAt"
+    FROM
+      sessions
+    WHERE
+      token = ${token}
+  `;
+
+  return session
+    ? {
+        id: session.id,
+        userId: session.userId,
+        token: session.token,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      }
+    : null;
+}
+
+export async function deleteSessionByToken(token: string): Promise<void> {
+  await sql`
+    DELETE FROM sessions
+    WHERE
+      token = ${token}
+  `;
+}
+
+----------------------------------------
+
+// database/users.ts:
+
+import { sql } from './connect';
+import bcrypt from 'bcrypt';
 
 const animalEmojis = [
   '🐶',
@@ -25,1850 +1147,598 @@ const animalEmojis = [
   '🐙',
 ];
 
-console.log(
-  'Cloudinary Cloud Name:',
-  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-);
-
-export default function EditProfileForm({ user }: { user: any }) {
-  const [formData, setFormData] = useState({
-    ...user,
-    userImage:
-      user.userImage ||
-      animalEmojis[Math.floor(Math.random() * animalEmojis.length)],
-  });
-  const [error, setError] = useState<string | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [interests, setInterests] = useState<string[]>([]);
-  const [newInterest, setNewInterest] = useState('');
-  const router = useRouter();
-
-  useEffect(() => {
-    setFormData(user);
-    setInterests(user.interests ? user.interests.split(',') : []);
-  }, [user]);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...formData,
-          interests: JSON.stringify(interests),
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setFormData(updatedUser.user);
-        router.push(
-          `/profile/${updatedUser.user.username}/${updatedUser.user.slug}`,
-        );
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
-    }
-  }
-
-  async function handleDelete() {
-    try {
-      const response = await fetch('/api/delete', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        router.push('/register');
-      } else {
-        throw new Error('Failed to delete user');
-      }
-    } catch (catchError: any) {
-      setError(catchError.message);
-    }
-  }
-
-  function handleChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    const { name, value } = event.target;
-    setFormData((prevData: any) => ({
-      ...prevData,
-      [name]: value,
-    }));
-  }
-
-  function handleEmojiClick() {
-    setShowEmojiPicker(!showEmojiPicker);
-  }
-
-  function handleEmojiSelect(emoji: string) {
-    setFormData((prevData: any) => ({
-      ...prevData,
-      userImage: emoji,
-    }));
-    setShowEmojiPicker(false);
-  }
-
-  async function handleAddInterest() {
-    const titleCaseInterest = toTitleCase(newInterest);
-
-    if (
-      newInterest &&
-      interests.length < 7 &&
-      !interests.includes(titleCaseInterest)
-    ) {
-      try {
-        const response = await fetch('/api/interests', {
-          method: 'POST',
-          body: JSON.stringify({ categoryName: titleCaseInterest }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          setInterests([...interests, titleCaseInterest]);
-          setNewInterest('');
-        } else {
-          throw new Error('Failed to add interest');
-        }
-      } catch (error) {
-        setError('Failed to add interest');
-      }
-    } else if (interests.includes(titleCaseInterest)) {
-      setError('Interest already added');
-    }
-  }
-
-  async function handleRemoveInterest(interestToRemove: string) {
-    try {
-      const response = await fetch('/api/interests', {
-        method: 'DELETE',
-        body: JSON.stringify({
-          categoryName: interestToRemove,
-          userId: user.id,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove interest');
-      }
-
-      setInterests(
-        interests.filter((interest) => interest !== interestToRemove),
-      );
-    } catch {
-      setError('Failed to remove interest');
-    }
-  }
-
-  function toTitleCase(str: string): string {
-    return str.replace(/\w\S*/g, (txt) => {
-      return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-    });
-  }
-
-  function handleUpload(result: any) {
-    if (result.event === 'success') {
-      setFormData((prevData: any) => ({
-        ...prevData,
-        userImage: result.info.secure_url,
-      }));
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-center p-8">
-      <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-          Edit My Profile
-        </h1>
-        <div className="text-center">
-          <button
-            className="text-9xl cursor-pointer"
-            onClick={handleEmojiClick}
-            tabIndex={0}
-            style={{
-              borderRadius: '50%',
-              overflow: 'hidden',
-              width: '150px',
-              height: '150px',
-            }}
-          >
-            {formData.userImage.startsWith('http') ? (
-              <CldImage
-                src={formData.userImage}
-                width="150"
-                height="150"
-                crop="fill"
-                alt=""
-              />
-            ) : (
-              formData.userImage
-            )}
-          </button>
-          {showEmojiPicker && (
-            <div className="mt-2 flex flex-wrap justify-center space-x-2">
-              {animalEmojis.map((emoji) => (
-                <button
-                  key={`emoji-${emoji}`}
-                  className="text-2xl cursor-pointer"
-                  onClick={() => handleEmojiSelect(emoji)}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="mt-4 flex space-x-4 justify-center">
-            <button
-              onClick={handleEmojiClick}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Change Avatar
-            </button>
-            <CldUploadWidget
-              uploadPreset="ml_default"
-              onSuccess={handleUpload}
-              options={{
-                styles: {
-                  palette: {
-                    window: '#FFFFFF',
-                    sourceBg: '#F4F4F5',
-                    windowBorder: '#90A0B3',
-                    tabIcon: '#0369a1',
-                    inactiveTabIcon: '#0284c7',
-                    menuIcons: '#0284c7',
-                    link: '#0284c7',
-                    action: '#059669',
-                    inProgress: '#047857',
-                    complete: '#059669',
-                    error: '#E92626',
-                    textDark: '#1f2937',
-                    textLight: '#FFFFFF',
-                  },
-                  fonts: {
-                    default: null,
-                    "'Open Sans', sans-serif": {
-                      url: 'https://fonts.googleapis.com/css?family=Open+Sans',
-                      active: true,
-                    },
-                  },
-                  frame: {
-                    position: 'fixed',
-                    top: '50%',
-                    left: '50%',
-                    width: '400px',
-                    height: '400px',
-                    transform: 'translate(-50%, -50%)',
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-                    borderRadius: '8px',
-                    zIndex: '1000',
-                  },
-                },
-              }}
-            >
-              {({ open }) => (
-                <button
-                  onClick={() => open()}
-                  className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                >
-                  Upload Image
-                </button>
-              )}
-            </CldUploadWidget>
-          </div>
-        </div>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-xl space-y-6 bg-gray-100 dark:bg-gray-700 p-6 rounded-md mx-auto"
-        >
-          <div>
-            <label
-              htmlFor="fullName"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Full Name
-            </label>
-            <input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder={formData.fullName ? '' : 'Enter your full name'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder={
-                formData.description ? '' : 'Enter a description of yourself'
-              }
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="newInterest"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Interests
-            </label>
-            <div className="flex space-x-2 items-center">
-              <input
-                id="newInterest"
-                name="newInterest"
-                value={newInterest}
-                onChange={(e) => setNewInterest(e.target.value)}
-                placeholder="Add a new interest"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleAddInterest}
-                className="py-2 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-                style={{ height: 'calc(2rem + 2px)' }}
-              >
-                Add
-              </button>
-            </div>
-            <div className="mt-2 space-y-2">
-              {interests.map((interest) => (
-                <span
-                  key={`interest-${interest}`}
-                  className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-                >
-                  {interest}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveInterest(interest)}
-                    className="ml-2 text-gray-500 hover:text-gray-700"
-                  >
-                    &times;
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="profileLinks"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Personal Links
-            </label>
-            <input
-              id="profileLinks"
-              name="profileLinks"
-              value={formData.profileLinks}
-              onChange={handleChange}
-              placeholder={
-                formData.profileLinks ? '' : 'Enter your personal links'
-              }
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="birthdate"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Birth Date
-            </label>
-            <input
-              id="birthdate"
-              name="birthdate"
-              type="date"
-              value={formData.birthdate}
-              onChange={handleChange}
-              placeholder={formData.birthdate ? '' : 'Enter your birth date'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="profession"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Profession
-            </label>
-            <input
-              id="profession"
-              name="profession"
-              value={formData.profession}
-              onChange={handleChange}
-              placeholder={formData.profession ? '' : 'Enter your profession'}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-            />
-          </div>
-          <div className="flex justify-center space-x-4">
-            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-              Save Changes
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Delete User
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/edit/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { getUserById } from '../../../../../database/users';
-import EditProfileForm from './EditProfileForm';
-
-export default async function EditProfilePage() {
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-centered text-red-500">
-          You are not logged in
-        </p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-centered text-red-500">
-          You are not logged in
-        </p>
-      </div>
-    );
-  }
-
-  const user = await getUserById(session.userId);
-
-  const userProfile = {
-    username: user.username,
-    email: user.email,
-    fullName: user.fullName || '',
-    description: user.description || '',
-    interests: user.interests || '',
-    profileLinks: user.profileLinks || '',
-    userImage: user.userImage || '',
-    location: user.location || '',
-    birthdate: user.birthdate ? user.birthdate.toISOString().split('T')[0] : '',
-    profession: user.profession || '',
-  };
-
-  return (
-    <div className="main-content form-container">
-      <EditProfileForm user={userProfile} />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/followers/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getFollowersByUsername } from '../../../../../database/follows';
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const username = searchParams.get('username');
-
-  if (!username) {
-    return NextResponse.json(
-      { error: 'Username is required' },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const followers = await getFollowersByUsername(username);
-    return NextResponse.json(followers);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/posts/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { createPost, getPostsByUserId } from '../../../../../database/posts';
-import {
-  addPostCategories,
-  findOrCreateCategory,
-  getPostCategories,
-} from '../../../../../database/categories';
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const sessionToken = request.cookies.get('session')?.value;
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
-    }
-
-    const { title, content, slug, icon, categoryNames } = await request.json();
-
-    if (!title || !content || !slug) {
-      return NextResponse.json(
-        { error: 'Title, content, and slug are required' },
-        { status: 400 },
-      );
-    }
-
-    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
-
-    const post = await createPost(session.userId, title, content, slug, icon);
-
-    const categoryIds = await Promise.all(
-      categoriesArray.map(async (categoryName) => {
-        const category = await findOrCreateCategory(categoryName);
-        if (category) {
-          return category.id;
-        }
-        return null;
-      }),
-    );
-
-    await addPostCategories(
-      post.id,
-      categoryIds.filter((id): id is number => id !== null),
-    );
-
-    return NextResponse.json(
-      { ...post, userId: session.userId, categoryIds },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(parseInt(userId, 10));
-
-    const postsWithCategories = await Promise.all(
-      posts.map(async (post) => {
-        const categories = await getPostCategories(post.id);
-        return { ...post, categories };
-      }),
-    );
-
-    return NextResponse.json(postsWithCategories);
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/delete/route.ts:
-
-// src/app/(auth)/api/delete/route.ts
-
-import { NextResponse } from 'next/server';
-import { getUserById, deleteUserById } from '../../../../../database/users';
-import {
-  getSessionByToken,
-  deleteSessionByToken,
-} from '../../../../../database/sessions';
-
-export async function POST(request: Request) {
-  const cookieHeader = request.headers.get('cookie');
-  const cookies = new Map(
-    cookieHeader?.split(';').map((cookie) => {
-      const [name, ...valueParts] = cookie.trim().split('=');
-      return [name, valueParts.join('=')];
-    }),
-  );
-
-  const sessionToken = cookies.get('session');
-
-  if (!sessionToken) {
-    return NextResponse.json(
-      { errors: [{ message: 'No session token found' }] },
-      { status: 400 },
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken);
-
-  if (!session) {
-    return NextResponse.json(
-      { errors: [{ message: 'Invalid session token' }] },
-      { status: 401 },
-    );
-  }
-
-  const user = await getUserById(session.userId);
-
-  await deleteUserById(user.id);
-  await deleteSessionByToken(sessionToken);
-
-  const response = NextResponse.json({ message: 'User deleted successfully' });
-  response.headers.set('Set-Cookie', 'session=; Max-Age=0; Path=/');
-
-  return response;
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/logout/route.ts:
-
-// src/app/(auth)/api/logout/route.ts
-import { deleteSessionByToken } from '../../../../../database/sessions';
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const sessionToken = request.cookies.get('session')?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json(
-      { errors: [{ message: 'No session token found' }] },
-      { status: 400 },
-    );
-  }
-
-  await deleteSessionByToken(sessionToken);
-
-  const response = NextResponse.json({ message: 'Logged out successfully' });
-  response.cookies.set('session', '', { maxAge: -1 });
-
-  return response;
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/search/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getCategoryByName } from '../../../../../database/categories';
-import { getPostsByCategory } from '../../../../../database/posts';
-import { getUsersByCategory } from '../../../../../database/users';
-
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const query = url.searchParams.get('query');
-
-  if (!query) {
-    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
-  }
-
-  try {
-    const category = await getCategoryByName(query);
-    if (!category) {
-      return NextResponse.json(
-        { error: 'Category not found' },
-        { status: 404 },
-      );
-    }
-
-    const posts = await getPostsByCategory(category.id);
-    const users = await getUsersByCategory(category.id);
-
-    return NextResponse.json({ posts, users });
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/register/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  createUser,
-  getUserByUsername,
-  getUserByEmail,
-} from '../../../../../database/users';
-import { createSession } from '../../../../../database/sessions';
-import { z } from 'zod';
-import type { User } from '../../../../../database/users';
-
-type RegisterResponseBodyPost =
-  | { user: User }
-  | { errors: { message: string }[] };
-
-const userSchema = z.object({
-  username: z.string().min(3),
-  password: z.string().min(3),
-  email: z.string().email(),
-  latitude: z.number(),
-  longitude: z.number(),
-});
-
-export async function POST(
-  request: Request,
-): Promise<NextResponse<RegisterResponseBodyPost>> {
-  try {
-    const body = await request.json();
-    const result = userSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          errors: result.error.issues.map((issue) => ({
-            message: issue.message,
-          })),
-        },
-        { status: 400 },
-      );
-    }
-
-    const { username, password, email, latitude, longitude } = result.data;
-
-    const existingUser = await getUserByUsername(username);
-    const existingEmailUser = await getUserByEmail(email);
-
-    if (existingUser) {
-      return NextResponse.json(
-        { errors: [{ message: 'Username already taken' }] },
-        { status: 409 },
-      );
-    }
-    if (existingEmailUser) {
-      return NextResponse.json(
-        { errors: [{ message: 'Email already in use' }] },
-        { status: 409 },
-      );
-    }
-
-    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
-    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
-
-    const user = await createUser(username, password, email, profileId, slug, {
-      x: longitude,
-      y: latitude,
-    });
-
-    // Create a session for the new user
-    const session = await createSession(user.id);
-
-    const response = NextResponse.json({ user }, { status: 201 });
-    response.cookies.set('session', session.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 12, // 12 hours
-    });
-
-    return response;
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/profile/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  getUserById,
-  updateUserProfile,
-  UserProfile,
-} from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { z } from 'zod';
-import { NextRequest } from 'next/server';
-
-const profileSchema = z.object({
-  fullName: z.string().optional(),
-  description: z.string().optional(),
-  interests: z.string().optional(),
-  profileLinks: z.string().optional(),
-  userImage: z.string().optional(),
-  // location: z.string().optional(),
-  birthdate: z.string().optional(),
-  profession: z.string().optional(),
-});
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const result = profileSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { errors: result.error.issues },
-        { status: 400 },
-      );
-    }
-
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
-
-    const interestsArray = result.data.interests
-      ? JSON.parse(result.data.interests)
-      : [];
-    const updatedUser = await updateUserProfile(session.userId, {
-      ...result.data,
-      interests: interestsArray,
-    } as Partial<UserProfile>);
-
-    return NextResponse.json({ user: updatedUser });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
-
-    const user = await getUserById(session.userId);
-
-    console.log(user);
-
-    return NextResponse.json({ user });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/following/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getFollowingUsersByUsername } from '../../../../../database/follows';
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const username = searchParams.get('username');
-
-  if (!username) {
-    return NextResponse.json(
-      { error: 'Username is required' },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const followingUsers = await getFollowingUsersByUsername(username);
-    return NextResponse.json(followingUsers);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/follows/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { followUser, unfollowUser } from '../../../../../database/follows';
-import { sql } from '../../../../../database/connect';
-
-export async function POST(request: NextRequest) {
-  const { followerId, followedId } = await request.json();
-  const sessionToken = request.cookies.get('session')?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 },
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken);
-  if (!session || session.userId !== followerId) {
-    return NextResponse.json(
-      { error: 'Invalid session or follower ID' },
-      { status: 401 },
-    );
-  }
-
-  await followUser(followerId, followedId);
-  return NextResponse.json(
-    { message: 'Followed successfully' },
-    { status: 200 },
-  );
-}
-
-export async function DELETE(request: NextRequest) {
-  const { followerId, followedId } = await request.json();
-  const sessionToken = request.cookies.get('session')?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 },
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken);
-  if (!session || session.userId !== followerId) {
-    return NextResponse.json(
-      { error: 'Invalid session or follower ID' },
-      { status: 401 },
-    );
-  }
-
-  await unfollowUser(followerId, followedId);
-  return NextResponse.json(
-    { message: 'Unfollowed successfully' },
-    { status: 200 },
-  );
-}
-
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const followerId = parseInt(url.searchParams.get('followerId') || '0', 10);
-  const followedId = parseInt(url.searchParams.get('followedId') || '0', 10);
-
-  if (!followerId || !followedId) {
-    return NextResponse.json(
-      { error: 'Follower ID and Followed ID are required' },
-      { status: 400 },
-    );
-  }
-
-  const [result] = await sql<{ '?column?': number }[]>`
-    SELECT
-      1
-    FROM
-      follows
-    WHERE
-      follower_id = ${followerId}
-      AND followed_id = ${followedId}
-    LIMIT
-      1
+export type User = {
+  id: number;
+  username: string;
+  passwordHash: string;
+  userImage: string | null;
+  email: string;
+  fullName?: string | null;
+  description?: string | null;
+  interests?: string | null;
+  profileLinks?: string | null;
+  location?: { x: number; y: number } | null | unknown;
+  birthdate?: Date | null;
+  profession?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  description: string | null;
+  interests: string | null;
+  profileLinks: string | null;
+  userImage: string | null;
+  location: { x: number; y: number } | null;
+  birthdate: Date | null;
+  profession: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  profileId: number;
+  slug: string;
+};
+
+export async function createUser(
+  username: string,
+  password: string,
+  email: string,
+  profileId: number,
+  slug: string,
+  location: { x: number; y: number },
+): Promise<User> {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const randomEmoji =
+    animalEmojis[Math.floor(Math.random() * animalEmojis.length)] || '';
+
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    INSERT INTO
+      users (
+        username,
+        password_hash,
+        user_image,
+        email,
+        profile_id,
+        slug,
+        location
+      )
+    VALUES
+      (
+        ${username},
+        ${passwordHash},
+        ${randomEmoji},
+        ${email},
+        ${profileId},
+        ${slug},
+        st_setsrid (
+          st_point (
+            ${location.x},
+            ${location.y}
+          ),
+          4326
+        )
+      )
+    RETURNING
+      id,
+      username,
+      password_hash AS "passwordHash",
+      user_image AS "userImage",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
   `;
 
-  const isFollowing = result !== undefined;
-  return NextResponse.json({ isFollowing }, { status: 200 });
+  if (users.length === 0) {
+    throw new Error('User creation failed');
+  }
+
+  const user = users[0] as User;
+  if (user.location) {
+    user.location = parseLocation(user.location as string);
+  }
+  return user;
 }
 
-----------------------------------------
+export async function getUserByUsername(
+  username: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      username = ${username}
+  `;
 
-// src/app/(auth)/api/interests/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  findOrCreateCategory,
-  addUserCategory,
-  getUserCategories,
-  removeUserCategory,
-} from '../../../../../database/categories';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { NextRequest } from 'next/server';
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { categoryName } = body;
-
-    const sessionToken = request.cookies.get('session');
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const session = await getSessionByToken(sessionToken.value);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const userId = session.userId;
-    const category = await findOrCreateCategory(categoryName);
-
-    if (category) {
-      await addUserCategory(userId, category.id);
-    }
-
-    const userCategories = await getUserCategories(userId);
-    return NextResponse.json({ categories: userCategories });
-  } catch {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
+  if (users.length === 0) {
+    return undefined;
   }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
 }
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { categoryName, userId } = body;
+export async function getUserByEmail(email: string): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      email = ${email}
+  `;
 
-    const sessionToken = request.cookies.get('session');
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const session = await getSessionByToken(sessionToken.value);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const category = await findOrCreateCategory(categoryName);
-    if (category) {
-      await removeUserCategory(userId, category.id.toString());
-    }
-
-    const userCategories = await getUserCategories(userId);
-    return NextResponse.json({ categories: userCategories });
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 },
-    );
+  if (users.length === 0) {
+    return undefined;
   }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
 }
 
-----------------------------------------
+export async function getUserById(id: number): Promise<User> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      id,
+      username,
+      password_hash AS "passwordHash",
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+    FROM
+      users
+    WHERE
+      id = ${id}
+  `;
 
-// src/app/(auth)/api/categories/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  createCategory,
-  getCategories,
-  removePostCategory,
-} from '../../../../../database/categories';
-
-export async function GET(): Promise<NextResponse> {
-  try {
-    const categories = await getCategories();
-    return NextResponse.json(categories);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
+  if (users.length === 0) {
+    throw new Error(`User with username ${id} not found`);
   }
+
+  const user = users[0];
+  if (!user) {
+    throw new Error(`User with username ${id} not found`);
+  }
+
+  user.location = user.location ? parseLocation(user.location as string) : null;
+
+  return user;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const { categoryName, description } = await request.json();
-    const category = await createCategory(categoryName, description);
-    return NextResponse.json({ category });
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
+export async function deleteUserById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM users
+    WHERE
+      id = ${id}
+  `;
 }
 
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  try {
-    const { categoryName, postId } = await request.json();
-    await removePostCategory(postId, categoryName);
-    const categories = await getCategories();
-    return NextResponse.json(categories);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/login/route.ts:
-
-import { NextResponse } from 'next/server';
-import { getUserByUsernameOrEmail } from '../../../../../database/users'; // Cambiado
-import { createSession } from '../../../../../database/sessions';
-import bcrypt from 'bcrypt';
-import { z } from 'zod';
-import type { User } from '../../../../../database/users';
-
-type LoginResponseBodyPost = { user: User } | { errors: { message: string }[] };
-
-const loginSchema = z.object({
-  identifier: z.string().min(3),
-  password: z.string().min(3),
-});
-
-export async function POST(
-  request: Request,
-): Promise<NextResponse<LoginResponseBodyPost>> {
-  try {
-    const body = await request.json();
-    console.log('Received login request:', body);
-
-    const result = loginSchema.safeParse(body);
-
-    if (!result.success) {
-      console.log('Validation failed:', result.error.issues);
-      return NextResponse.json(
-        { errors: result.error.issues },
-        { status: 400 },
-      );
-    }
-
-    const user = await getUserByUsernameOrEmail(result.data.identifier); // Cambiado
-
-    if (!user) {
-      console.log('User not found:', result.data.identifier);
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid username or password' }] },
-        { status: 401 },
-      );
-    }
-
-    // Add a log to verify the result of bcrypt.compare
-    const passwordMatch = await bcrypt.compare(
-      result.data.password,
-      user.passwordHash,
-    );
-    console.log('Password match result:', passwordMatch);
-
-    if (!passwordMatch) {
-      console.log('Password mismatch for user:', result.data.identifier);
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid username or password' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await createSession(user.id);
-
-    console.log('Session created:', session);
-
-    const response = NextResponse.json(
-      { user: { ...user, slug: user.slug } },
-      { status: 200 },
-    );
-    response.cookies.set('session', session.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 12, // 12 hours
-    });
-
-    return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/login/LoginForm.tsx:
-
-'use client';
-
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-export default function LoginForm() {
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-
-  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    console.log('Attempting login with:', { identifier, password });
-
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      body: JSON.stringify({ identifier, password }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = response.ok ? await response.json() : null;
-
-    if (response.ok) {
-      console.log('Login successful:', data);
-      router.push(`/profile/${data.user.username}/private`); // Redirect to profile page using username
-    } else {
-      console.log('Login failed:', data);
-      setError(
-        data && data.errors
-          ? data.errors[0].message
-          : 'Invalid username or password',
-      );
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20 ">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
-          Sign In
-        </h1>
-        <form onSubmit={handleLogin} className="space-y-6">
-          {!!error && <p className="text-red-500 text-center">{error}</p>}
-          <div>
-            <label
-              htmlFor="identifier"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Username or Email
-            </label>
-            <input
-              id="identifier"
-              name="identifier"
-              placeholder="Enter username or email"
-              value={identifier}
-              onChange={(event) => setIdentifier(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(event) => setPassword(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div className="flex justify-center">
-            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-              Sign in
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/(auth)/login/page.tsx:
-
-'use client';
-
-import LoginForm from './LoginForm';
-
-export default function LoginPage() {
-  return <LoginForm />;
-}
-
-----------------------------------------
-
-// src/app/(auth)/register/RegisterForm.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-function generateSlug(username: string): string {
-  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-}
-
-export default function RegisterForm() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
-      },
-      (geolocationError) => {
-        console.error('Error obtaining geolocation', error);
-        setError('Unable to obtain geolocation');
-      },
-    );
-  }, []);
-
-  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (latitude === null || longitude === null) {
-      setError('Geolocation is required');
-      return;
-    }
-
-    const slug = generateSlug(username);
-
-    const response = await fetch('/api/register', {
-      method: 'POST',
-      body: JSON.stringify({
-        username,
-        password,
-        email,
-        latitude,
-        longitude,
-        slug,
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = response.ok ? await response.json() : null;
-
-    if (response.ok) {
-      setError('User registered successfully');
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      router.push('/login');
-    } else {
-      setError(
-        data ? data.errors[0].message : 'Username or password already taken',
-      );
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
-          Sign Up
-        </h1>
-        <form onSubmit={handleRegister} className="space-y-6">
-          {!!error && (
-            <p
-              className={
-                error === 'User registered successfully'
-                  ? 'text-emerald-600 text-center'
-                  : 'text-red-500 text-center'
-              }
-            >
-              {error}
-            </p>
-          )}
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              name="username"
-              placeholder="Enter username"
-              value={username}
-              onChange={(event) => setUsername(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(event) => setEmail(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(event) => setPassword(event.currentTarget.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              required
-            />
-          </div>
-          <div className="flex justify-center">
-            <button
-              type="submit"
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Sign Up
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/(auth)/register/page.tsx:
-
-// src/app/(auth)/register/page.tsx
-
-'use client';
-
-import RegisterForm from './RegisterForm';
-
-export default function RegisterPage() {
-  return <RegisterForm />;
-}
-
-----------------------------------------
-
-// src/app/api/comments/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../database/sessions';
-import {
-  createPostComment,
-  getCommentsByPostId,
-} from '../../../../database/posts_comments'; // Cambiado
-
-export async function POST(request: NextRequest) {
-  const sessionToken = request.cookies.get('session')?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 },
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken);
-  if (!session) {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-  }
-
-  const { postId, content } = await request.json();
-
-  if (!postId || !content) {
-    return NextResponse.json(
-      { error: 'Post ID and content are required' },
-      { status: 400 },
-    );
-  }
-
-  const comment = await createPostComment(postId, session.userId, content); // Cambiado
-  return NextResponse.json(comment, { status: 201 });
-}
-
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const postId = url.searchParams.get('postId');
-
-  if (!postId) {
-    return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
-  }
-
-  const comments = await getCommentsByPostId(parseInt(postId, 10)); // Cambiado
-  return NextResponse.json(comments);
-}
-
-----------------------------------------
-
-// src/app/api/friends/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  getFollowersWithLocation,
-  getFollowingWithLocation,
-} from '../../../../database/follows';
-
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
-  }
-
-  try {
-    const followers = await getFollowersWithLocation(Number(userId));
-    const following = await getFollowingWithLocation(Number(userId));
-    const allFriends = [...followers, ...following].map((friend) => ({
-      ...friend,
-      location: friend.location as string,
-    }));
-    return NextResponse.json(allFriends);
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to fetch friends' },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/api/posts/user/[id]/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getPostsByUserId } from '../../../../../../database/posts';
-import { getPostCategories } from '../../../../../../database/categories';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const userId = parseInt(params.id, 10);
-  if (isNaN(userId)) {
-    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(userId);
-
-    const postsWithCategories = await Promise.all(
-      posts.map(async (post) => {
-        const categories = await getPostCategories(post.id);
-        return { ...post, categories };
-      }),
-    );
-
-    return NextResponse.json(postsWithCategories);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/api/profile/[username]/comments/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../../database/sessions';
-import {
-  createProfileComment,
-  getCommentsByProfileUserId,
-} from '../../../../../../database/profiles_comments';
-import { getUserByUsername } from '../../../../../../database/users';
-
-export async function POST(request: NextRequest) {
-  try {
-    const sessionToken = request.cookies.get('session')?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-    }
-
-    const { content } = await request.json();
-    const username = request.nextUrl.pathname.split('/')[3];
-
-    if (!username || !content) {
-      return NextResponse.json(
-        { error: 'Username and content are required' },
-        { status: 400 },
-      );
-    }
-
-    const user = await getUserByUsername(username);
-    if (!user) {
-      return NextResponse.json(
-        { error: `User with username ${username} not found` },
-        { status: 404 },
-      );
-    }
-
-    const comment = await createProfileComment(
-      user.id,
-      session.userId,
-      content,
-    );
-
-    return NextResponse.json(comment, { status: 201 });
-  } catch (error) {
-    console.error('Error adding comment:', error);
-    return NextResponse.json(
-      { error: `Failed to add comment: ${(error as Error).message}` },
-      { status: 500 },
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const username = request.nextUrl.pathname.split('/')[3];
-
-    if (!username) {
-      return NextResponse.json(
-        { error: 'Username is required' },
-        { status: 400 },
-      );
-    }
-
-    const user = await getUserByUsername(username);
-    if (!user) {
-      return NextResponse.json(
-        { error: `User with username ${username} not found` },
-        { status: 404 },
-      );
-    }
-
-    const comments = await getCommentsByProfileUserId(user.id);
-    return NextResponse.json(comments);
-  } catch (error) {
-    console.error('Error fetching comments:', error);
-    return NextResponse.json(
-      { error: `Failed to fetch comments: ${(error as any).message}` },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/api/search/nearby/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '../../../../../database/connect';
-
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const latitude = parseFloat(url.searchParams.get('latitude') || '0');
-  const longitude = parseFloat(url.searchParams.get('longitude') || '0');
-  const radius = parseInt(url.searchParams.get('radius') || '10'); // Radius in kilometers
-
-  if (!latitude || !longitude) {
-    return NextResponse.json(
-      { error: 'Latitude and Longitude are required' },
-      { status: 400 },
-    );
-  }
+export async function updateUserProfile(
+  userId: number,
+  profileData: Partial<UserProfile>,
+): Promise<UserProfile> {
+  const birthdateValue = profileData.birthdate
+    ? `to_date('${new Date(profileData.birthdate).toISOString().split('T')[0]}', 'YYYY-MM-DD')`
+    : null;
+  const locationValue = profileData.location
+    ? `ST_SetSRID(ST_Point(${profileData.location.x}, ${profileData.location.y}), 4326)`
+    : null;
 
   const users = await sql<
     {
       id: number;
       username: string;
       email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      userImage: string;
+      location: string | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    UPDATE users
+    SET
+      full_name = coalesce(
+        ${profileData.fullName ?? 'null'},
+        full_name
+      ),
+      description = coalesce(
+        ${profileData.description ?? 'null'},
+        description
+      ),
+      interests = coalesce(
+        ${profileData.interests ?? 'null'},
+        interests
+      ),
+      profile_links = coalesce(
+        ${profileData.profileLinks ?? 'null'},
+        profile_links
+      ),
+      user_image = coalesce(
+        ${profileData.userImage ?? 'null'},
+        user_image
+      ),
+      location = coalesce(
+        ${locationValue}::geometry,
+        location
+      ),
+      birthdate = coalesce(
+        ${birthdateValue}::date,
+        birthdate
+      ),
+      profession = coalesce(
+        ${profileData.profession ?? 'null'},
+        profession
+      ),
+      updated_at = now()
+    WHERE
+      id = ${userId}
+    RETURNING
+      id,
+      username,
+      email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
+      user_image AS "userImage",
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
+  `;
+
+  const updatedUser = users[0];
+
+  if (!updatedUser) {
+    throw new Error('Profile update failed');
+  }
+
+  if (updatedUser.location) {
+    const parsedLocation = parseLocation(updatedUser.location);
+    updatedUser.location = parsedLocation
+      ? JSON.stringify(parsedLocation)
+      : null;
+  }
+
+  return updatedUser as UserProfile;
+}
+
+// Helper function to parse location from string to { x: number; y: number }
+export function parseLocation(
+  locationString: string,
+): { x: number; y: number } | null {
+  const match = locationString.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+  if (!match) {
+    return null;
+  }
+  const [, x, y] = match;
+  return { x: parseFloat(x || '0'), y: parseFloat(y || '0') };
+}
+
+export async function getUserByUsernameOrEmail(
+  identifier: string,
+): Promise<User | undefined> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      passwordHash: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
       userImage: string;
       location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
     }[]
   >`
     SELECT
       id,
       username,
+      password_hash AS "passwordHash",
       email,
+      full_name AS "fullName",
+      description,
+      interests,
+      profile_links AS "profileLinks",
       user_image AS "userImage",
-      st_astext (location) AS location
+      st_astext (location) AS "location",
+      birthdate,
+      profession,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt",
+      profile_id AS "profileId",
+      slug
     FROM
       users
     WHERE
-      st_dwithin (
-        location,
-        st_setsrid (
-          st_makepoint (
-            ${longitude},
-            ${latitude}
-          ),
-          4326
-        ),
-        ${radius} * 1000
-      )
+      username = ${identifier}
+      OR email = ${identifier}
   `;
 
-  return NextResponse.json(users);
+  if (users.length === 0) {
+    return undefined;
+  }
+
+  const user = users[0];
+  if (user) {
+    user.location = user.location
+      ? parseLocation(user.location as string)
+      : null;
+  }
+
+  return user;
+}
+
+export async function getUsersByCategory(categoryId: number): Promise<User[]> {
+  const users = await sql<
+    {
+      id: number;
+      username: string;
+      userImage: string;
+      email: string;
+      fullName: string | null;
+      description: string | null;
+      interests: string | null;
+      profileLinks: string | null;
+      location: unknown | null;
+      birthdate: Date | null;
+      profession: string | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      profileId: number;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      u.id,
+      u.username,
+      u.user_image AS "userImage",
+      u.email,
+      u.full_name AS "fullName",
+      u.description,
+      u.interests,
+      u.profile_links AS "profileLinks",
+      st_astext (u.location) AS location,
+      u.birthdate,
+      u.profession,
+      u.created_at AS "createdAt",
+      u.updated_at AS "updatedAt",
+      u.profile_id AS "profileId",
+      u.slug
+    FROM
+      users u
+      JOIN users_categories uc ON u.id = uc.user_id
+    WHERE
+      uc.category_id = ${categoryId}
+  `;
+
+  return users.map((user) => ({
+    ...user,
+    passwordHash: null,
+    location: user.location ? parseLocation(user.location as string) : null,
+  })) as unknown as User[];
 }
 
 ----------------------------------------
 
-// src/app/api/upload/route.ts:
+// database/users_categories.ts:
 
-import { NextRequest, NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
+import { sql } from './connect';
 
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-  api_secret: process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET,
-});
+export type UserCategory = {
+  id: number;
+  categoryName: string;
+  description?: string;
+};
 
-export async function POST(request: NextRequest) {
-  try {
-    const { image } = await request.json();
-
-    if (!image) {
-      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
-    }
-
-    const uploadResponse = await cloudinary.uploader.upload(image, {
-      folder: 'profile_pictures',
-    });
-
-    return NextResponse.json({ url: uploadResponse.secure_url });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Image upload failed' }, { status: 500 });
-  }
+export async function addUserCategory(
+  userId: number,
+  categoryId: number,
+): Promise<void> {
+  await sql`
+    INSERT INTO
+      users_categories (user_id, category_id)
+    VALUES
+      (
+        ${userId},
+        ${categoryId}
+      )
+  `;
 }
 
-----------------------------------------
+export async function removeUserCategory(
+  userId: number,
+  categoryId: number,
+): Promise<void> {
+  await sql`
+    DELETE FROM users_categories
+    WHERE
+      user_id = ${userId}
+      AND category_id = ${categoryId}
+  `;
+}
 
-// src/app/api/users/username/[username]/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getUserByUsername } from '../../../../../../database/users';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { username: string } },
-) {
-  const { username } = params;
-
-  try {
-    const user = await getUserByUsername(username);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    return NextResponse.json(user);
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
+export async function getUserCategories(
+  userId: number,
+): Promise<UserCategory[]> {
+  const categories = await sql<
+    { id: number; categoryName: string; description: string | null }[]
+  >`
+    SELECT
+      c.id AS id,
+      c.category_name AS "categoryName",
+      c.description AS description
+    FROM
+      categories c
+      INNER JOIN users_categories uc ON c.id = uc.category_id
+    WHERE
+      uc.user_id = ${userId}
+  `;
+  return categories.map((category) => ({
+    ...category,
+    description: category.description ?? undefined,
+  }));
 }
 
 ----------------------------------------

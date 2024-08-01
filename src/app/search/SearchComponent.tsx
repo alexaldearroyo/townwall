@@ -1,3 +1,5 @@
+// src/app/search/SearchComponent.tsx:
+
 'use client';
 
 import React, { useState } from 'react';
@@ -106,10 +108,6 @@ export default function SearchComponent() {
                       </div>
                     )}
                   </div>
-                  {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
-                  {/* <div className="text-sm text-gray-500 dark:text-gray-300">
-        {user.location ? user.location : 'Location not available'}
-      </div> */}
                 </li>
               ))}
             </ul>

@@ -551,3 +551,11 @@ export async function getUsersByCategory(categoryId: number): Promise<User[]> {
     location: user.location ? parseLocation(user.location as string) : null,
   })) as unknown as User[];
 }
+
+export function getUsersByUsername(username: string) {
+  return sql<{ id: number; username: string; userImage: string; location: unknown | null; interests: string | null }[]>`
+    SELECT id, username, user_image AS "userImage", location, interests
+    FROM users
+    WHERE username ILIKE ${'%' + username + '%'}
+  `;
+}
