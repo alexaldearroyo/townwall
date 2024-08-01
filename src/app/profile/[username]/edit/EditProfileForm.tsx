@@ -386,7 +386,7 @@ export default function EditProfileForm({ user }: { user: any }) {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
           </div>
-          <div>
+          {/* <div>
             <label
               htmlFor="birthdate"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -402,7 +402,7 @@ export default function EditProfileForm({ user }: { user: any }) {
               placeholder={formData.birthdate ? '' : 'Enter your birth date'}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
             />
-          </div>
+          </div> */}
           <div>
             <label
               htmlFor="profession"

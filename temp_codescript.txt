@@ -1,751 +1,3 @@
-// src/app/profile/[username]/[slug]/UserFriends.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
-import { CldImage } from 'next-cloudinary';
-
-const MapComponent = dynamic(
-  () => import('../../../../components/MapComponent'),
-  {
-    ssr: false,
-  },
-);
-
-async function fetchFriends(userId: number) {
-  const response = await fetch(`/api/friends?userId=${userId}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch friends');
-  }
-  const data = await response.json();
-  return data;
-}
-
-async function fetchFollowing(username: string) {
-  const response = await fetch(`/api/following?username=${username}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch following users');
-  }
-  const data = await response.json();
-  return data;
-}
-
-export default function UserFriends({
-  user,
-}: {
-  user: {
-    id: number;
-    username: string;
-    location?: { x: number; y: number } | null;
-  };
-}) {
-  const router = useRouter();
-  const [friends, setFriends] = useState<
-    { id: number; username: string; location: string }[]
-  >([]);
-  const [following, setFollowing] = useState<
-    {
-      id: number;
-      username: string;
-      userImage: string | null;
-      interests: string;
-    }[]
-  >([]);
-  const [showFollowing, setShowFollowing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchFriends(user.id).then(setFriends).catch(console.error);
-  }, [user.id]);
-
-  const handleShowFollowing = async () => {
-    try {
-      const data = await fetchFollowing(user.username);
-      setFollowing(data);
-      setShowFollowing(true);
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
-  return (
-    <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        My Friends
-      </h2>
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={handleShowFollowing}
-          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-        >
-          Following
-        </button>
-        <button
-          onClick={() => router.push(`/profile/${user.username}/followers`)}
-          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-        >
-          Followers
-        </button>
-      </div>
-
-      {showFollowing && (
-        <div className="w-full mt-4">
-          <h3 className="font-semibold text-center text-sky-700 dark:text-sky-600">
-            <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-              {user.username}
-            </span>{' '}
-            is following:
-          </h3>
-          {!!error && <p className="text-red-500 text-center">{error}</p>}
-          <ul className="flex flex-wrap justify-center space-x-4 mt-6">
-            {following.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex flex-col items-center space-y-2 mt-6 w-40"
-              >
-                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                  {user.userImage && user.userImage.startsWith('http') ? (
-                    <CldImage
-                      src={user.userImage}
-                      width="40"
-                      height="40"
-                      crop="fill"
-                      alt="User profile image"
-                      style={{ borderRadius: '50%' }}
-                    />
-                  ) : (
-                    <span className="text-xl">{user.userImage}</span>
-                  )}
-                </div>
-                <div>
-                  <p className="text-lg font-medium text-gray-800 dark:text-white">
-                    {user.username}
-                  </p>
-                  {!!user.interests && (
-                    <div className="flex flex-wrap items-center space-x-2 mt-2">
-                      {user.interests.split(',').map((interest) => (
-                        <span
-                          key={`interest-${interest}`}
-                          className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
-                        >
-                          {interest}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <h3 className="text-lg text-center text-sky-700 font-bold dark:text-sky-600">
-        Nearby friends
-      </h3>
-      {!!user.location && (
-        <div className="w-full h-96 mt-4 rounded-lg overflow-hidden">
-          <MapComponent
-            latitude={user.location.y || 0}
-            longitude={user.location.x || 0}
-            markers={friends}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserPosts.tsx:
-
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-
-type CategoryType = {
-  id: number;
-  categoryName: string;
-};
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categories: CategoryType[];
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-export default function UserPosts({
-  user,
-  posts,
-  handleNewPost,
-}: {
-  user: { username: string };
-  posts: PostType[];
-  handleNewPost: () => void;
-}) {
-  return (
-    <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        My Posts
-      </h2>
-      <ul>
-        {posts.length > 0 ? (
-          posts.map((post, index) => (
-            <li key={`post-${post.id}`} className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <Link
-                  href={`/posts/${user.username}/${post.slug}`}
-                  className="text-lg font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
-                >
-                  {post.title}
-                </Link>
-                {post.categories.length > 0 && (
-                  <div className="flex flex-wrap items-center space-x-2 mt-2">
-                    {post.categories.map((category) => (
-                      <span
-                        key={`category-${category.id}`}
-                        className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
-                      >
-                        {category.categoryName}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {post.createdAt
-                    ? new Date(post.createdAt).toLocaleDateString()
-                    : ''}
-                </span>
-              </div>
-              <p className="text-gray-700 dark:text-gray-300">
-                {post.content.slice(0, 100)}...
-              </p>
-              {index < posts.length - 1 && (
-                <hr className="border-t mt-4 border-gray-300 dark:border-gray-700" />
-              )}
-            </li>
-          ))
-        ) : (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No posts yet
-          </p>
-        )}
-      </ul>
-
-      <div className="flex justify-center">
-        <button
-          onClick={handleNewPost}
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-        >
-          Add New Post
-        </button>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserProfile.tsx:
-
-'use client';
-import { CldImage } from 'next-cloudinary';
-import React from 'react';
-
-export default function UserProfile({
-  user,
-  location,
-  error,
-  handleLogout,
-}: {
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  location: { city: string; country: string } | null;
-  error: string | null;
-  handleLogout: () => void;
-}) {
-  return (
-    <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        My Info
-      </h2>
-      <div className="flex justify-center items-center mx-auto">
-        {user.userImage && user.userImage.startsWith('http') ? (
-          <CldImage
-            src={user.userImage}
-            width="150"
-            height="150"
-            crop="fill"
-            alt="User profile image"
-            style={{ borderRadius: '50%' }}
-          />
-        ) : (
-          <span className="text-9xl">{user.userImage}</span>
-        )}
-      </div>
-
-      <div className="flex justify-center space-x-4">
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-700 font-bold dark:text-sky-600">
-            Username:{' '}
-          </span>
-          {user.username}
-        </p>
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-700 font-bold dark:text-sky-600">
-            Email:{' '}
-          </span>
-          {user.email}
-        </p>
-      </div>
-      <div className="flex justify-center space-x-4">
-        {!!user.fullName && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Full Name:{' '}
-            </span>
-            {user.fullName}
-          </p>
-        )}
-        {!!user.profileLinks && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Profile Links:{' '}
-            </span>
-            {user.profileLinks}
-          </p>
-        )}
-      </div>
-
-      {!!user.description && (
-        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700  p-4 rounded-lg">
-          {/* <span className="text-sky-800 font-bold dark:text-sky-600">
-            Description:{' '}
-          </span> */}
-          {user.description}
-        </p>
-      )}
-
-      {!!user.interests && (
-        <div className="text-center text-gray-700 dark:text-gray-300">
-          {user.interests.split(',').map((interest) => (
-            <span
-              key={`interest-${interest}`}
-              className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-            >
-              {interest}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex justify-center space-x-4">
-        {!!location && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Location:{' '}
-            </span>
-            {location.city}, {location.country}
-          </p>
-        )}
-      </div>
-
-      {!!user.birthdate && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-700 font-bold dark:text-sky-600">
-            Birthdate:{' '}
-          </span>
-          {user.birthdate}
-        </p>
-      )}
-      {!!user.profession && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-700 font-bold dark:text-sky-600">
-            Profession:{' '}
-          </span>
-          {user.profession}
-        </p>
-      )}
-      {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={() =>
-            (window.location.href = `/profile/${user.username}/edit`)
-          }
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Sign Out
-        </button>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/PrivatePageClient.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { getCityAndCountry } from '../../../../../util/geocode';
-import UserProfile from './UserProfile';
-import UserPosts from './UserPosts';
-import UserFriends from './UserFriends';
-import UserComments from './UserComments';
-
-type CategoryType = {
-  id: number;
-  categoryName: string;
-};
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categories: CategoryType[];
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-type LocationType = {
-  city: string;
-  country: string;
-};
-
-type UserType = {
-  id: number;
-  username: string;
-  email: string;
-  fullName?: string;
-  description?: string;
-  interests?: string;
-  profileLinks?: string;
-  userImage?: string;
-  location?: { x: number; y: number } | null;
-  birthdate?: string;
-  profession?: string;
-};
-
-type PrivatePageClientProps = {
-  user: UserType;
-  loggedInUserId: number | null;
-};
-
-export default function PrivatePageClient({
-  user,
-  loggedInUserId,
-}: PrivatePageClientProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [location, setLocation] = useState<LocationType | null>(null);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch(`/api/posts/user/${user.id}`);
-        if (response.ok) {
-          const userPosts = await response.json();
-          setPosts(userPosts);
-        } else {
-          setError('Failed to fetch posts');
-        }
-      } catch (err) {
-        setError('Failed to fetch posts');
-      }
-    };
-
-    fetchPosts();
-  }, [user.id]);
-
-  useEffect(() => {
-    if (user.location) {
-      getCityAndCountry(user.location.y, user.location.x)
-        .then((loc) => setLocation(loc))
-        .catch(() => setError('Failed to fetch location data'));
-    }
-  }, [user.location]);
-
-  async function handleLogout() {
-    const response = await fetch('/api/logout', {
-      method: 'POST',
-    });
-
-    if (response.ok) {
-      window.location.href = '/'; // Redirect to landing page after logout
-    } else {
-      setError('Failed to log out');
-    }
-  }
-
-  function handleNewPost() {
-    window.location.href = `/posts/${user.username}/new`;
-  }
-
-  return (
-    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-start space-y-8 md:space-y-0 md:space-x-8">
-      <div className="w-full md:w-1/2 flex flex-col space-y-8">
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <UserProfile
-            user={user}
-            location={location}
-            error={error}
-            handleLogout={handleLogout}
-          />
-        </div>
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <UserComments userId={user.id} username={user.username} />
-        </div>
-      </div>
-      <div className="w-full md:w-1/2 flex flex-col space-y-8">
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <UserPosts user={user} posts={posts} handleNewPost={handleNewPost} />
-        </div>
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <UserFriends user={user} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PrivatePageClient from './PrivatePageClient';
-import Link from 'next/link';
-
-export default async function ProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  if (!sessionToken) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const session = await getSessionByToken(sessionToken.value);
-  const loggedInUserId = session ? session.userId : null;
-
-  if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">You are not logged in</p>
-      </div>
-    );
-  }
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
-    );
-  }
-
-  if (session.userId !== user.id) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">Access denied</p>
-      </div>
-    );
-  }
-
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
-  };
-
-  return (
-    <div>
-      <PrivatePageClient user={userProfile} loggedInUserId={loggedInUserId} />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/[slug]/UserComments.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
-
-export default function UserComments({
-  userId,
-  username,
-}: {
-  userId: number;
-  username: string;
-}) {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(`/api/profile/${username}/comments`);
-        if (response.ok) {
-          const profileComments = await response.json();
-          setComments(profileComments);
-        } else {
-          setFetchError('Failed to fetch comments');
-        }
-      } catch (err) {
-        setFetchError('Failed to fetch comments');
-      }
-    };
-
-    fetchComments().catch((err) => {
-      console.error('Error fetching comments:', err);
-      setFetchError('Failed to fetch comments');
-    });
-  }, [username]);
-
-  const handleCommentSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    try {
-      const response = await fetch(`/api/profile/${username}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ content: newComment }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add comment');
-      }
-
-      const comment = await response.json();
-      setComments([comment, ...comments]);
-      setNewComment('');
-    } catch (err: any) {
-      setFetchError(err.message);
-    }
-  };
-
-  return (
-    <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        My Wall
-      </h2>
-      <div className="space-y-2">
-        {comments.length === 0 ? (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No comments yet
-          </p>
-        ) : (
-          comments.map((comment) => (
-            <div
-              key={`comment-${comment.id}`}
-              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-            >
-              <p className="text-gray-700 dark:text-gray-300">
-                {comment.content}
-              </p>
-              <small className="text-gray-500 dark:text-gray-400">
-                {new Date(comment.createdAt).toLocaleString()} by{' '}
-                <a
-                  href={`/profile/${comment.username}/public`}
-                  className="text-sky-700 font-bold dark:text-sky-600 hover:text-sky-800"
-                >
-                  {comment.username}
-                </a>
-              </small>
-            </div>
-          ))
-        )}
-      </div>
-      <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
-        <div className="flex justify-center w-full">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-        <div className="flex justify-center">
-          <button className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-            Submit
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-----------------------------------------
-
 // src/app/profile/[username]/edit/EditProfileForm.tsx:
 
 'use client';
@@ -1247,1013 +499,25 @@ export default async function EditProfilePage() {
 
 ----------------------------------------
 
-// src/app/profile/[username]/followers/FollowersList.tsx:
-
-// src/app/profile/[username]/followers/FollowersList.tsx
-
-'use client';
-
-import React from 'react';
-
-type UserType = {
-  email: string;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-type FollowersListProps = {
-  followers: UserType[];
-  error: string | null;
-};
-
-const FollowersList: React.FC<FollowersListProps> = ({ followers, error }) => {
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          Users Following You
-        </h1>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul className="flex flex-wrap space-x-2">
-          {followers.length > 0 ? (
-            followers.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex items-center space-x-2 mb-2"
-              >
-                <div className="h-15 w-15 rounded-full">{user.userImage}</div>
-                <div>
-                  <p className="text-lg font-medium text-gray-900 dark:text-white">
-                    <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold hover:bg-gray-300 text-gray-700 mr-2">
-                        {user.username}
-                      </span>
-                    </a>
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-300">
-                    {user.email}
-                  </p>
-                </div>
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              No one is following you.
-            </p>
-          )}
-        </ul>
-      </div>
-    </div>
-  );
-};
-
-export default FollowersList;
-
-----------------------------------------
-
-// src/app/profile/[username]/followers/page.tsx:
-
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import FollowersList from './FollowersList';
-
-type UserType = {
-  email: string;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-export default function FollowersPage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const [followers, setFollowers] = useState<UserType[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchFollowers = async () => {
-      try {
-        const response = await fetch(`/api/followers?username=${username}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch followers');
-        }
-        const data = await response.json();
-        setFollowers(data);
-      } catch (error: any) {
-        setError(error.message);
-      }
-    };
-
-    fetchFollowers();
-  }, [username]);
-
-  return <FollowersList followers={followers} error={error} />;
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/following/FollowingList.tsx:
-
-'use client';
-
-import React, { ReactNode } from 'react';
-
-type UserType = {
-  email: ReactNode;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-type FollowingListProps = {
-  following: UserType[];
-  error: string | null;
-  username: string;
-  loggedInUsername: string;
-};
-
-const FollowingList: React.FC<FollowingListProps> = ({
-  following,
-  error,
-  username,
-  loggedInUsername,
-}) => {
-  return (
-    <div className="flex items-center justify-center mt-20 mb-20 ">
-      <div className="w-full max-w-md p-8 space-y-6">
-        <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-          {username === loggedInUsername
-            ? 'You are following:'
-            : `${username} is following:`}
-        </h1>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <ul className="flex flex-wrap space-x-2">
-          {following.length > 0 ? (
-            following.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex items-center space-x-2 mb-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="text-xl font-bold text-center text-gray-800 dark:text-white">
-                    <a href={`/profile/${user.username}/public`}>
-                      <span className="inline-block bg-gray-200 hover:bg-gray-300 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-                        {user.username}
-                      </span>{' '}
-                    </a>
-                  </div>
-                </div>
-                {/* <div className="h-15 w-15 rounded-full">{user.userImage}</div> */}
-                {/* <div className="text-sm text-gray-500 dark:text-gray-300">
-                  {user.location ? user.location : 'Location not available'}
-                </div> */}
-              </li>
-            ))
-          ) : (
-            <p className="text-center text-gray-700 dark:text-gray-300">
-              {username === loggedInUsername
-                ? 'You are not following anyone.'
-                : `${username} is not following anyone.`}
-            </p>
-          )}
-        </ul>
-      </div>
-    </div>
-  );
-};
-
-export default FollowingList;
-
-----------------------------------------
-
-// src/app/profile/[username]/following/page.tsx:
-
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import FollowingList from './FollowingList';
-
-type UserType = {
-  email: React.ReactNode;
-  id: number;
-  username: string;
-  userImage: string | null;
-};
-
-export default function FollowingPage({ params }: { params: { username: string } }) {
-  const [following, setFollowing] = useState<UserType[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const { username } = params;
-
-  useEffect(() => {
-    const fetchFollowing = async () => {
-      try {
-        const response = await fetch(`/api/following?username=${username}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch following users');
-        }
-        const data = await response.json();
-        setFollowing(data);
-      } catch (error: any) {
-        setError(error.message);
-      }
-    };
-
-    fetchFollowing();
-  }, [username]);
-
-  // Assume you have a way to get the logged in user's username, for example from cookies or context
-  const loggedInUsername = 'loggedInUser'; // Replace this with the actual logic
-
-  return <FollowingList following={following} error={error} username={username} loggedInUsername={loggedInUsername} />;
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/comments/page.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
-
-export default function CommentsPage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [profileId, setProfileId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchUserAndComments = async () => {
-      try {
-        const userResponse = await fetch(`/api/users/username/${username}`);
-        const user = await userResponse.json();
-        setProfileId(user.id);
-
-        const commentsResponse = await fetch(
-          `/api/profile/comments?profileId=${user.id}`,
-        );
-        const commentsData = await commentsResponse.json();
-        setComments(commentsData);
-      } catch (err) {
-        setError('Failed to fetch comments or user');
-      }
-    };
-
-    fetchUserAndComments();
-  }, [username]);
-
-  const handleCommentSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    if (!profileId) {
-      setError('Profile ID is not set');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/profile/comments', {
-        method: 'POST',
-        body: JSON.stringify({ profileId, content: newComment }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add comment');
-      }
-
-      const comment = await response.json();
-      setComments([comment, ...comments]);
-      setNewComment('');
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Comments for {username}
-        </h1>
-        <form onSubmit={handleCommentSubmit} className="space-y-4">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md"
-          >
-            Submit
-          </button>
-        </form>
-        {!!error && <p className="text-red-500 text-center">{error}</p>}
-        <div className="space-y-4">
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-            >
-              <p className="text-gray-700 dark:text-gray-300">
-                {comment.content}
-              </p>
-              <small className="text-gray-500 dark:text-gray-400">
-                {new Date(comment.createdAt).toLocaleString()}
-              </small>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/PublicPageClient.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import Wall from './Wall';
-import Posts from './Posts';
-import UserFriends from './Friends';
-import Comments from './Comments';
-import Friends from './Friends';
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categoryId: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-export default function PublicPageClient({
-  user,
-  loggedInUserId,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  loggedInUserId: number | null;
-}) {
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await fetch(`/api/posts/user/${user.id}`);
-        if (response.ok) {
-          const userPosts = await response.json();
-          setPosts(userPosts);
-        } else {
-          setError('Failed to fetch posts');
-        }
-      } catch (err) {
-        setError('Failed to fetch posts');
-      }
-    };
-
-    fetchPosts();
-  }, [user.id]);
-
-  return (
-    <div className="w-full min-h-screen p-8 flex flex-col md:flex-row items-start space-y-8 md:space-y-0 md:space-x-8">
-      <div className="w-full md:w-1/2 flex flex-col space-y-8">
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <Wall user={user} loggedInUserId={loggedInUserId} />
-        </div>
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <Comments username={user.username} />
-        </div>
-      </div>
-      <div className="w-full md:w-1/2 flex flex-col space-y-8">
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <Posts posts={posts} username={user.username} />
-        </div>
-        <div className="w-full p-8 bg-white rounded-lg shadow dark:bg-gray-800 flex justify-center">
-          <Friends user={user} /> {/* Use the new Friends component */}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Comments.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-
-type CommentType = {
-  id: number;
-  profileId: number;
-  userId: number;
-  content: string;
-  createdAt: Date;
-  username: string;
-  userImage: string;
-};
-
-export default function Comments({ username }: { username: string }) {
-  const [comments, setComments] = useState<CommentType[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(`/api/profile/${username}/comments`);
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-        const profileComments = await response.json();
-        setComments(profileComments);
-      } catch (err: any) {
-        setError(`Failed to fetch comments: ${err.message}`);
-      }
-    };
-
-    fetchComments().catch((err) => {
-      console.error('Error fetching comments:', err);
-      setError(`Failed to fetch comments: ${err.message}`);
-    });
-  }, [username]);
-
-  const handleCommentSubmit = async (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    try {
-      const response = await fetch(`/api/profile/${username}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ content: newComment }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add comment');
-      }
-
-      const comment = await response.json();
-      setComments([comment, ...comments]);
-      setNewComment('');
-    } catch (err: any) {
-      setError(`Failed to add comment: ${err.message}`);
-    }
-  };
-
-  return (
-    <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        Comments
-      </h2>
-      {!!error && <p className="text-red-500 text-center">{error}</p>}
-      <div className="space-y-2">
-        {comments.length === 0 ? (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No comments yet
-          </p>
-        ) : (
-          comments.map((comment) => (
-            <div
-              key={`comment-${comment.id}`}
-              className="p-4 bg-gray-100 rounded-md dark:bg-gray-700"
-            >
-              <p className="text-gray-700 dark:text-gray-300">
-                {comment.content}
-              </p>
-              <small className="text-gray-500 dark:text-gray-400">
-                {new Date(comment.createdAt).toLocaleString()} by{' '}
-                <a
-                  href={`/profile/${comment.username}/public`}
-                  className="text-sky-700 dark:text-sky-600 hover:text-sky-800"
-                >
-                  {comment.username}
-                </a>
-              </small>
-            </div>
-          ))
-        )}
-      </div>
-      <form onSubmit={handleCommentSubmit} className="space-y-4 mt-4">
-        <div className="flex justify-center w-full">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment"
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-        <div className="flex justify-center">
-          <button className="w-0.5/2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
-            Submit
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Wall.tsx:
-
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { getCityAndCountry } from '../../../../../util/geocode';
-import { CldImage } from 'next-cloudinary';
-
-type LocationType = {
-  city: string;
-  country: string;
-};
-
-export default function Wall({
-  user,
-  loggedInUserId,
-}: {
-  user: {
-    id: number;
-    username: string;
-    fullName?: string;
-    description?: string;
-    interests?: string;
-    profileLinks?: string;
-    userImage?: string;
-    location?: { x: number; y: number } | null;
-    birthdate?: string;
-    profession?: string;
-  };
-  loggedInUserId: number | null;
-}) {
-  const [location, setLocation] = useState<LocationType | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user.location) {
-      getCityAndCountry(user.location.y, user.location.x)
-        .then((loc) => setLocation(loc))
-        .catch((err) => setError('Failed to fetch location data'));
-    }
-  }, [user.location]);
-
-  useEffect(() => {
-    const checkIfFollowing = async () => {
-      if (loggedInUserId) {
-        const response = await fetch(
-          `/api/follows?followerId=${loggedInUserId}&followedId=${user.id}`,
-        );
-        const result = await response.json();
-        setIsFollowing(result.isFollowing);
-      }
-    };
-
-    checkIfFollowing();
-  }, [loggedInUserId, user.id]);
-
-  const handleFollow = async () => {
-    await fetch('/api/follows', {
-      method: isFollowing ? 'DELETE' : 'POST',
-      body: JSON.stringify({ followerId: loggedInUserId, followedId: user.id }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    setIsFollowing(!isFollowing);
-  };
-
-  return (
-    <div className="w-full space-y-4">
-      <h1 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        Profile of{' '}
-        <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-          {user.username}
-        </span>
-      </h1>
-      <div className="flex justify-center items-center mx-auto">
-        {user.userImage && user.userImage.startsWith('http') ? (
-          <CldImage
-            src={user.userImage}
-            width="150"
-            height="150"
-            crop="fill"
-            alt="User profile image"
-            style={{ borderRadius: '50%' }}
-          />
-        ) : (
-          <span className="text-9xl">{user.userImage}</span>
-        )}
-      </div>
-
-      <div className="flex justify-center space-x-4">
-        {!!user.fullName && user.fullName.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Full Name:{' '}
-            </span>
-            {user.fullName}
-          </p>
-        )}
-        {!!user.profileLinks && user.profileLinks.trim() !== 'null' && (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            <span className="text-sky-700 font-bold dark:text-sky-600">
-              Profile Links:{' '}
-            </span>
-            {user.profileLinks}
-          </p>
-        )}
-      </div>
-
-      {!!user.description && (
-        <p className="text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-          {user.description}
-        </p>
-      )}
-
-      {!!user.interests && user.interests.trim() !== 'null' && (
-        <div className="text-center text-gray-700 dark:text-gray-300">
-          {user.interests.split(',').map((interest) => (
-            <span
-              key={`interest-${interest}`}
-              className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2"
-            >
-              {interest}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex justify-center space-x-4">
-        {!!user.location && (
-          <div className="w-full">
-            {!!location && (
-              <p className="text-center text-gray-700 dark:text-gray-300">
-                <span className="text-sky-800 font-bold dark:text-sky-600">
-                  Location:{' '}
-                </span>
-                {location.city}, {location.country}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {!!user.birthdate && user.birthdate.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Birthdate:{' '}
-          </span>
-          {user.birthdate}
-        </p>
-      )}
-      {!!user.profession && user.profession.trim() !== 'null' && (
-        <p className="text-center text-gray-700 dark:text-gray-300">
-          <span className="text-sky-800 font-bold dark:text-sky-600">
-            Profession:{' '}
-          </span>
-          {user.profession}
-        </p>
-      )}
-
-      {!!loggedInUserId && loggedInUserId !== user.id && (
-        <div className="flex justify-center">
-          <button
-            onClick={handleFollow}
-            className={`w-0.5/2 h-10 px-4 text-white rounded-md ${
-              isFollowing ? 'bg-red-600' : 'bg-sky-600'
-            }`}
-          >
-            {isFollowing ? 'Unfollow' : 'Follow'}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Friends.tsx:
-
-// src/app/profile/[username]/public/Friends.tsx
-
-'use client';
-
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CldImage } from 'next-cloudinary';
-
-type UserType = {
-  id: number;
-  username: string;
-  userImage: string | null;
-  interests: string;
-};
-
-export default function Friends({
-  user,
-}: {
-  user: {
-    username: string;
-  };
-}) {
-  const router = useRouter();
-  const [following, setFollowing] = useState<UserType[]>([]);
-  const [showFollowing, setShowFollowing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleShowFollowing = async () => {
-    try {
-      const response = await fetch(`/api/following?username=${user.username}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch following users');
-      }
-      const data = await response.json();
-      setFollowing(data);
-      setShowFollowing(true);
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
-  return (
-    <div className="w-full space-y-6">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        Friends
-      </h2>
-      <div className="flex space-x-4 justify-center">
-        <button
-          onClick={handleShowFollowing}
-          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-        >
-          Following
-        </button>
-        <button
-          onClick={() => router.push(`/profile/${user.username}/followers`)}
-          className="flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-        >
-          Followers
-        </button>
-      </div>
-      {showFollowing && (
-        <div className="w-full mt-4">
-          <h3 className="font-semibold text-center text-sky-700 dark:text-sky-600">
-            <span className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2">
-              {user.username}
-            </span>{' '}
-            is following:
-          </h3>
-          {!!error && <p className="text-red-500 text-center">{error}</p>}
-          <ul className="flex flex-wrap justify-center space-x-4 mt-6">
-            {following.map((user) => (
-              <li
-                key={`user-${user.id}`}
-                className="flex flex-col items-center space-y-2 mt-6 w-40"
-              >
-                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                  {user.userImage && user.userImage.startsWith('http') ? (
-                    <CldImage
-                      src={user.userImage}
-                      width="40"
-                      height="40"
-                      crop="fill"
-                      alt="User profile image"
-                      style={{ borderRadius: '50%' }}
-                    />
-                  ) : (
-                    <span className="text-xl">{user.userImage}</span>
-                  )}
-                </div>
-                <div>
-                  <p className="text-lg font-medium text-gray-800 dark:text-white">
-                    {user.username}
-                  </p>
-                  {!!user.interests && (
-                    <div className="flex flex-wrap items-center space-x-2 mt-2">
-                      {user.interests.split(',').map((interest) => (
-                        <span
-                          key={`interest-${interest}`}
-                          className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
-                        >
-                          {interest}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/Posts.tsx:
-
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-
-type CategoryType = {
-  id: number;
-  categoryName: string;
-};
-
-type PostType = {
-  id: number;
-  userId: number;
-  icon: string | null;
-  title: string;
-  content: string;
-  categories: CategoryType[];
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  slug: string;
-};
-
-export default function Posts({
-  posts,
-  username,
-}: {
-  posts: PostType[];
-  username: string;
-}) {
-  return (
-    <div className="w-full space-y-4">
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white">
-        Posts
-      </h2>
-      <ul>
-        {posts.length > 0 ? (
-          posts.map((post) => (
-            <li key={`post-${post.id}`} className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <Link
-                  href={`/posts/${username}/${post.slug}`}
-                  className="text-lg font-semibold text-sky-700 dark:text-sky-600 hover:text-sky-800"
-                >
-                  {post.title}
-                </Link>
-                {post.categories.length > 0 && (
-                  <div className="flex flex-wrap items-center space-x-2 mt-2">
-                    {post.categories.map((category) => (
-                      <span
-                        key={`category-${category.id}`}
-                        className="inline-block bg-orange-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mt-2"
-                      >
-                        {category.categoryName}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {post.createdAt
-                    ? new Date(post.createdAt).toLocaleDateString()
-                    : ''}
-                </span>
-              </div>
-              <p className="text-gray-700 dark:text-gray-300">
-                {post.content.slice(0, 100)}...
-              </p>
-              {posts.indexOf(post) < posts.length - 1 && (
-                <hr className="border-t mt-4 border-gray-300 dark:border-gray-700" />
-              )}
-            </li>
-          ))
-        ) : (
-          <p className="text-center text-gray-700 dark:text-gray-300">
-            No posts yet
-          </p>
-        )}
-      </ul>
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/profile/[username]/public/page.tsx:
-
-import React from 'react';
-import { cookies } from 'next/headers';
-import { getUserByUsername } from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import PublicPageClient from './PublicPageClient';
-
-export default async function PublicProfilePage({
-  params,
-}: {
-  params: { username: string };
-}) {
-  const { username } = params;
-  const cookieStore = cookies();
-  const sessionToken = cookieStore.get('session');
-
-  const loggedInUserId = sessionToken
-    ? (await getSessionByToken(sessionToken.value))?.userId
-    : null;
-
-  const user = await getUserByUsername(username);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-xl text-red-500">User not found</p>
-      </div>
+// src/app/(auth)/api/followers/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getFollowersByUsername } from '../../../../../database/follows';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const username = searchParams.get('username');
+
+  if (!username) {
+    return NextResponse.json(
+      { error: 'Username is required' },
+      { status: 400 },
     );
   }
 
-  const userProfile = {
-    id: user.id,
-    username: user.username,
-    ...(user.fullName && { fullName: user.fullName }),
-    ...(user.description && { description: user.description }),
-    ...(user.interests && { interests: user.interests }),
-    ...(user.profileLinks && { profileLinks: user.profileLinks }),
-    ...(user.userImage && { userImage: user.userImage }),
-    ...(user.location && { location: user.location }),
-    ...(user.birthdate && { birthdate: user.birthdate.toISOString() }),
-    ...(user.profession && { profession: user.profession }),
-  };
-
-  return (
-    <div>
-      <PublicPageClient
-        user={userProfile}
-        loggedInUserId={loggedInUserId ?? null}
-      />
-    </div>
-  );
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/categories/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  createCategory,
-  getCategories,
-  removePostCategory,
-} from '../../../../../database/categories';
-
-export async function GET(): Promise<NextResponse> {
   try {
-    const categories = await getCategories();
-    return NextResponse.json(categories);
+    const followers = await getFollowersByUsername(username);
+    return NextResponse.json(followers);
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
@@ -2261,13 +525,69 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 }
+
+----------------------------------------
+
+// src/app/(auth)/api/posts/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { createPost, getPostsByUserId } from '../../../../../database/posts';
+import {
+  addPostCategories,
+  findOrCreateCategory,
+  getPostCategories,
+} from '../../../../../database/categories';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { categoryName, description } = await request.json();
-    const category = await createCategory(categoryName, description);
-    return NextResponse.json({ category });
+    const sessionToken = request.cookies.get('session')?.value;
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
+    }
+
+    const { title, content, slug, icon, categoryNames } = await request.json();
+
+    if (!title || !content || !slug) {
+      return NextResponse.json(
+        { error: 'Title, content, and slug are required' },
+        { status: 400 },
+      );
+    }
+
+    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
+
+    const post = await createPost(session.userId, title, content, slug, icon);
+
+    const categoryIds = await Promise.all(
+      categoriesArray.map(async (categoryName) => {
+        const category = await findOrCreateCategory(categoryName);
+        if (category) {
+          return category.id;
+        }
+        return null;
+      }),
+    );
+
+    await addPostCategories(
+      post.id,
+      categoryIds.filter((id): id is number => id !== null),
+    );
+
+    return NextResponse.json(
+      { ...post, userId: session.userId, categoryIds },
+      { status: 201 },
+    );
   } catch (error) {
+    console.error('Error creating post:', error);
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 500 },
@@ -2275,13 +595,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+  }
+
   try {
-    const { categoryName, postId } = await request.json();
-    await removePostCategory(postId, categoryName);
-    const categories = await getCategories();
-    return NextResponse.json(categories);
+    const posts = await getPostsByUserId(parseInt(userId, 10));
+
+    const postsWithCategories = await Promise.all(
+      posts.map(async (post) => {
+        const categories = await getPostCategories(post.id);
+        return { ...post, categories };
+      }),
+    );
+
+    return NextResponse.json(postsWithCategories);
   } catch (error) {
+    console.error('Error fetching posts:', error);
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 500 },
@@ -2342,28 +676,260 @@ export async function POST(request: Request) {
 
 ----------------------------------------
 
-// src/app/(auth)/api/followers/route.ts:
+// src/app/(auth)/api/logout/route.ts:
 
+// src/app/(auth)/api/logout/route.ts
+import { deleteSessionByToken } from '../../../../../database/sessions';
 import { NextRequest, NextResponse } from 'next/server';
-import { getFollowersByUsername } from '../../../../../database/follows';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const username = searchParams.get('username');
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const sessionToken = request.cookies.get('session')?.value;
 
-  if (!username) {
+  if (!sessionToken) {
     return NextResponse.json(
-      { error: 'Username is required' },
+      { errors: [{ message: 'No session token found' }] },
       { status: 400 },
     );
   }
 
+  await deleteSessionByToken(sessionToken);
+
+  const response = NextResponse.json({ message: 'Logged out successfully' });
+  response.cookies.set('session', '', { maxAge: -1 });
+
+  return response;
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/search/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getCategoryByName } from '../../../../../database/categories';
+import { getPostsByCategory } from '../../../../../database/posts';
+import { getUsersByCategory } from '../../../../../database/users';
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const query = url.searchParams.get('query');
+
+  if (!query) {
+    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
+  }
+
   try {
-    const followers = await getFollowersByUsername(username);
-    return NextResponse.json(followers);
+    const category = await getCategoryByName(query);
+    if (!category) {
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 404 },
+      );
+    }
+
+    const posts = await getPostsByCategory(category.id);
+    const users = await getUsersByCategory(category.id);
+
+    return NextResponse.json({ posts, users });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/register/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  createUser,
+  getUserByUsername,
+  getUserByEmail,
+} from '../../../../../database/users';
+import { createSession } from '../../../../../database/sessions';
+import { z } from 'zod';
+import type { User } from '../../../../../database/users';
+
+type RegisterResponseBodyPost =
+  | { user: User }
+  | { errors: { message: string }[] };
+
+const userSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(3),
+  email: z.string().email(),
+  latitude: z.number(),
+  longitude: z.number(),
+});
+
+export async function POST(
+  request: Request,
+): Promise<NextResponse<RegisterResponseBodyPost>> {
+  try {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          errors: result.error.issues.map((issue) => ({
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const { username, password, email, latitude, longitude } = result.data;
+
+    const existingUser = await getUserByUsername(username);
+    const existingEmailUser = await getUserByEmail(email);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Username already taken' }] },
+        { status: 409 },
+      );
+    }
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { errors: [{ message: 'Email already in use' }] },
+        { status: 409 },
+      );
+    }
+
+    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
+    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
+
+    const user = await createUser(username, password, email, profileId, slug, {
+      x: longitude,
+      y: latitude,
+    });
+
+    // Create a session for the new user
+    const session = await createSession(user.id);
+
+    const response = NextResponse.json({ user }, { status: 201 });
+    response.cookies.set('session', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
+// src/app/(auth)/api/profile/route.ts:
+
+import { NextResponse } from 'next/server';
+import {
+  getUserById,
+  updateUserProfile,
+  UserProfile,
+} from '../../../../../database/users';
+import { getSessionByToken } from '../../../../../database/sessions';
+import { z } from 'zod';
+import { NextRequest } from 'next/server';
+
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  description: z.string().optional(),
+  interests: z.string().optional(),
+  profileLinks: z.string().optional(),
+  userImage: z.string().optional(),
+  // location: z.string().optional(),
+  birthdate: z.string().optional(),
+  profession: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const result = profileSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { errors: result.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const interestsArray = result.data.interests
+      ? JSON.parse(result.data.interests)
+      : [];
+    const updatedUser = await updateUserProfile(session.userId, {
+      ...result.data,
+      interests: interestsArray,
+    } as Partial<UserProfile>);
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get('session');
+    const sessionToken = sessionCookie ? sessionCookie.value : null;
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { errors: [{ message: 'Not authenticated' }] },
+        { status: 401 },
+      );
+    }
+
+    const session = await getSessionByToken(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { errors: [{ message: 'Invalid session token' }] },
+        { status: 401 },
+      );
+    }
+
+    const user = await getUserById(session.userId);
+
+    console.log(user);
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { errors: [{ message: 'Internal server error' }] },
       { status: 500 },
     );
   }
@@ -2565,6 +1131,56 @@ export async function DELETE(request: NextRequest) {
 
 ----------------------------------------
 
+// src/app/(auth)/api/categories/route.ts:
+
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  createCategory,
+  getCategories,
+  removePostCategory,
+} from '../../../../../database/categories';
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, description } = await request.json();
+    const category = await createCategory(categoryName, description);
+    return NextResponse.json({ category });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { categoryName, postId } = await request.json();
+    await removePostCategory(postId, categoryName);
+    const categories = await getCategories();
+    return NextResponse.json(categories);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
+}
+
+----------------------------------------
+
 // src/app/(auth)/api/login/route.ts:
 
 import { NextResponse } from 'next/server';
@@ -2649,360 +1265,284 @@ export async function POST(
 
 ----------------------------------------
 
-// src/app/(auth)/api/logout/route.ts:
+// src/app/(auth)/login/LoginForm.tsx:
 
-// src/app/(auth)/api/logout/route.ts
-import { deleteSessionByToken } from '../../../../../database/sessions';
-import { NextRequest, NextResponse } from 'next/server';
+'use client';
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const sessionToken = request.cookies.get('session')?.value;
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-  if (!sessionToken) {
-    return NextResponse.json(
-      { errors: [{ message: 'No session token found' }] },
-      { status: 400 },
-    );
-  }
+export default function LoginForm() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  await deleteSessionByToken(sessionToken);
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-  const response = NextResponse.json({ message: 'Logged out successfully' });
-  response.cookies.set('session', '', { maxAge: -1 });
+    console.log('Attempting login with:', { identifier, password });
 
-  return response;
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/posts/route.ts:
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { createPost, getPostsByUserId } from '../../../../../database/posts';
-import {
-  addPostCategories,
-  findOrCreateCategory,
-  getPostCategories,
-} from '../../../../../database/categories';
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const sessionToken = request.cookies.get('session')?.value;
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not valid' }, { status: 401 });
-    }
-
-    const { title, content, slug, icon, categoryNames } = await request.json();
-
-    if (!title || !content || !slug) {
-      return NextResponse.json(
-        { error: 'Title, content, and slug are required' },
-        { status: 400 },
-      );
-    }
-
-    const categoriesArray = Array.isArray(categoryNames) ? categoryNames : [];
-
-    const post = await createPost(session.userId, title, content, slug, icon);
-
-    const categoryIds = await Promise.all(
-      categoriesArray.map(async (categoryName) => {
-        const category = await findOrCreateCategory(categoryName);
-        if (category) {
-          return category.id;
-        }
-        return null;
-      }),
-    );
-
-    await addPostCategories(
-      post.id,
-      categoryIds.filter((id): id is number => id !== null),
-    );
-
-    return NextResponse.json(
-      { ...post, userId: session.userId, categoryIds },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const userId = url.searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
-  try {
-    const posts = await getPostsByUserId(parseInt(userId, 10));
-
-    const postsWithCategories = await Promise.all(
-      posts.map(async (post) => {
-        const categories = await getPostCategories(post.id);
-        return { ...post, categories };
-      }),
-    );
-
-    return NextResponse.json(postsWithCategories);
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/profile/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  getUserById,
-  updateUserProfile,
-  UserProfile,
-} from '../../../../../database/users';
-import { getSessionByToken } from '../../../../../database/sessions';
-import { z } from 'zod';
-import { NextRequest } from 'next/server';
-
-const profileSchema = z.object({
-  fullName: z.string().optional(),
-  description: z.string().optional(),
-  interests: z.string().optional(),
-  profileLinks: z.string().optional(),
-  userImage: z.string().optional(),
-  // location: z.string().optional(),
-  birthdate: z.string().optional(),
-  profession: z.string().optional(),
-});
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const result = profileSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { errors: result.error.issues },
-        { status: 400 },
-      );
-    }
-
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
-
-    const interestsArray = result.data.interests
-      ? JSON.parse(result.data.interests)
-      : [];
-    const updatedUser = await updateUserProfile(session.userId, {
-      ...result.data,
-      interests: interestsArray,
-    } as Partial<UserProfile>);
-
-    return NextResponse.json({ user: updatedUser });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const sessionCookie = request.cookies.get('session');
-    const sessionToken = sessionCookie ? sessionCookie.value : null;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { errors: [{ message: 'Not authenticated' }] },
-        { status: 401 },
-      );
-    }
-
-    const session = await getSessionByToken(sessionToken);
-    if (!session) {
-      return NextResponse.json(
-        { errors: [{ message: 'Invalid session token' }] },
-        { status: 401 },
-      );
-    }
-
-    const user = await getUserById(session.userId);
-
-    console.log(user);
-
-    return NextResponse.json({ user });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
-  }
-}
-
-----------------------------------------
-
-// src/app/(auth)/api/register/route.ts:
-
-import { NextResponse } from 'next/server';
-import {
-  createUser,
-  getUserByUsername,
-  getUserByEmail,
-} from '../../../../../database/users';
-import { createSession } from '../../../../../database/sessions';
-import { z } from 'zod';
-import type { User } from '../../../../../database/users';
-
-type RegisterResponseBodyPost =
-  | { user: User }
-  | { errors: { message: string }[] };
-
-const userSchema = z.object({
-  username: z.string().min(3),
-  password: z.string().min(3),
-  email: z.string().email(),
-  latitude: z.number(),
-  longitude: z.number(),
-});
-
-export async function POST(
-  request: Request,
-): Promise<NextResponse<RegisterResponseBodyPost>> {
-  try {
-    const body = await request.json();
-    const result = userSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          errors: result.error.issues.map((issue) => ({
-            message: issue.message,
-          })),
-        },
-        { status: 400 },
-      );
-    }
-
-    const { username, password, email, latitude, longitude } = result.data;
-
-    const existingUser = await getUserByUsername(username);
-    const existingEmailUser = await getUserByEmail(email);
-
-    if (existingUser) {
-      return NextResponse.json(
-        { errors: [{ message: 'Username already taken' }] },
-        { status: 409 },
-      );
-    }
-    if (existingEmailUser) {
-      return NextResponse.json(
-        { errors: [{ message: 'Email already in use' }] },
-        { status: 409 },
-      );
-    }
-
-    const profileId = Math.floor(Math.random() * 1000); // Generate a profile ID
-    const slug = username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(); // Generate a slug
-
-    const user = await createUser(username, password, email, profileId, slug, {
-      x: longitude,
-      y: latitude,
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    // Create a session for the new user
-    const session = await createSession(user.id);
+    const data = response.ok ? await response.json() : null;
 
-    const response = NextResponse.json({ user }, { status: 201 });
-    response.cookies.set('session', session.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 12, // 12 hours
-    });
-
-    return response;
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { errors: [{ message: 'Internal server error' }] },
-      { status: 500 },
-    );
+    if (response.ok) {
+      console.log('Login successful:', data);
+      router.push(`/profile/${data.user.username}/private`); // Redirect to profile page using username
+    } else {
+      console.log('Login failed:', data);
+      setError(
+        data && data.errors
+          ? data.errors[0].message
+          : 'Invalid username or password',
+      );
+    }
   }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20 ">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+          Sign In
+        </h1>
+        <form onSubmit={handleLogin} className="space-y-6">
+          {!!error && <p className="text-red-500 text-center">{error}</p>}
+          <div>
+            <label
+              htmlFor="identifier"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username or Email
+            </label>
+            <input
+              id="identifier"
+              name="identifier"
+              placeholder="Enter username or email"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div className="flex justify-center">
+            <button className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+              Sign in
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 ----------------------------------------
 
-// src/app/(auth)/api/search/route.ts:
+// src/app/(auth)/login/page.tsx:
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getCategoryByName } from '../../../../../database/categories';
-import { getPostsByCategory } from '../../../../../database/posts';
-import { getUsersByCategory } from '../../../../../database/users';
+'use client';
 
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const query = url.searchParams.get('query');
+import LoginForm from './LoginForm';
 
-  if (!query) {
-    return NextResponse.json({ error: 'Query is required' }, { status: 400 });
-  }
+export default function LoginPage() {
+  return <LoginForm />;
+}
 
-  try {
-    const category = await getCategoryByName(query);
-    if (!category) {
-      return NextResponse.json(
-        { error: 'Category not found' },
-        { status: 404 },
-      );
+----------------------------------------
+
+// src/app/(auth)/register/RegisterForm.tsx:
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+function generateSlug(username: string): string {
+  return username.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+}
+
+export default function RegisterForm() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      (geolocationError) => {
+        console.error('Error obtaining geolocation', error);
+        setError('Unable to obtain geolocation');
+      },
+    );
+  }, []);
+
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (latitude === null || longitude === null) {
+      setError('Geolocation is required');
+      return;
     }
 
-    const posts = await getPostsByCategory(category.id);
-    const users = await getUsersByCategory(category.id);
+    const slug = generateSlug(username);
 
-    return NextResponse.json({ posts, users });
-  } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    );
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        username,
+        password,
+        email,
+        latitude,
+        longitude,
+        slug,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = response.ok ? await response.json() : null;
+
+    if (response.ok) {
+      setError('User registered successfully');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      router.push('/login');
+    } else {
+      setError(
+        data ? data.errors[0].message : 'Username or password already taken',
+      );
+    }
   }
+
+  return (
+    <div className="flex items-center justify-center mt-20 mb-20">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow dark:bg-gray-800">
+        <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+          Sign Up
+        </h1>
+        <form onSubmit={handleRegister} className="space-y-6">
+          {!!error && (
+            <p
+              className={
+                error === 'User registered successfully'
+                  ? 'text-emerald-600 text-center'
+                  : 'text-red-500 text-center'
+              }
+            >
+              {error}
+            </p>
+          )}
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              placeholder="Enter username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div className="flex justify-center">
+            <button
+              type="submit"
+              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+----------------------------------------
+
+// src/app/(auth)/register/page.tsx:
+
+// src/app/(auth)/register/page.tsx
+
+'use client';
+
+import RegisterForm from './RegisterForm';
+
+export default function RegisterPage() {
+  return <RegisterForm />;
 }
 
 ----------------------------------------
