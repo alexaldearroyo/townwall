@@ -21,7 +21,7 @@ type PostClientProps = {
   currentUser: any;
 };
 
-export default function PostClient({ post }: PostClientProps) {
+export default function PostClient({ post, currentUser }: PostClientProps) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +55,58 @@ export default function PostClient({ post }: PostClientProps) {
     }
   };
 
-  const handleEditPost = () => {
-    console.log('Edit post clicked');
+  const handleEditPost = async () => {
+    const updatedTitle = prompt('Edit title', post.title);
+    const updatedContent = prompt('Edit content', post.content);
+
+    if (updatedTitle && updatedContent) {
+      try {
+        const response = await fetch('/api/posts', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            id: post.id,
+            title: updatedTitle,
+            content: updatedContent,
+            slug: post.slug,
+            categoryNames: post.categories.map(
+              (c: CategoryType) => c.categoryName,
+            ),
+          }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          throw new Error('Failed to update post');
+        }
+      } catch {
+        setError('Failed to update post');
+      }
+    }
   };
 
-  const handleDeletePost = () => {
-    console.log('Delete post clicked');
+  const handleDeletePost = async () => {
+    const confirmDelete = window.confirm(
+      'Are you sure you want to delete this post?',
+    );
+    if (confirmDelete) {
+      try {
+        const response = await fetch('/api/posts', {
+          method: 'DELETE',
+          body: JSON.stringify({ id: post.id }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+          window.location.href = `/posts/${post.author}`;
+        } else {
+          throw new Error('Failed to delete post');
+        }
+      } catch {
+        setError('Failed to delete post');
+      }
+    }
   };
 
   return (
@@ -70,20 +116,22 @@ export default function PostClient({ post }: PostClientProps) {
           <h1 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
             {post.title}
           </h1>
-          {/* <div className="space-x-2">
-            <button
-              onClick={handleEditPost}
-              className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Edit
-            </button>
-            <button
-              onClick={handleDeletePost}
-              className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Delete
-            </button>
-          </div> */}
+          {currentUser?.id === post.userId && (
+            <div className="space-x-2">
+              <button
+                onClick={handleEditPost}
+                className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleDeletePost}
+                className="py-1 px-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
         <p className="text-center text-gray-600 dark:text-gray-400">
           By{' '}

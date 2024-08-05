@@ -210,3 +210,78 @@ export async function getPostsByCategory(categoryId: number): Promise<Post[]> {
 
   return posts;
 }
+
+export async function updatePost(
+  id: number,
+  title: string,
+  content: string,
+  slug: string,
+): Promise<void> {
+  await sql`
+    UPDATE posts
+    SET
+      title = ${title},
+      content = ${content},
+      slug = ${slug},
+      updated_at = now()
+    WHERE
+      id = ${id}
+  `;
+}
+
+export async function deletePostById(id: number): Promise<void> {
+  await sql`
+    DELETE FROM posts
+    WHERE
+      id = ${id}
+  `;
+}
+
+export async function updatePostCategories(
+  postId: number,
+  categoryIds: number[],
+): Promise<void> {
+  // Primero, eliminamos las categorías actuales del post
+  await sql`
+    DELETE FROM posts_categories
+    WHERE
+      post_id = ${postId}
+  `;
+
+  // Luego, insertamos las nuevas categorías
+  if (categoryIds.length > 0) {
+    await sql`
+      INSERT INTO
+        posts_categories (post_id, category_id)
+      SELECT
+        ${postId},
+        unnest(
+          ${categoryIds}::INT[]
+        )
+    `;
+  }
+}
+
+export async function fetchPostById(id: number) {
+  const [post] = await sql<
+    {
+      id: number;
+      userId: number;
+      icon: string | null;
+      title: string;
+      content: string;
+      categoryId: string | null;
+      createdAt: Date;
+      updatedAt: Date | null;
+      slug: string;
+    }[]
+  >`
+    SELECT
+      *
+    FROM
+      posts
+    WHERE
+      id = ${id}
+  `;
+  return post;
+}
